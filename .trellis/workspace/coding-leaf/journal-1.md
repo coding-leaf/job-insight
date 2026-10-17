@@ -60,3 +60,25 @@ Completed data cleaning, 19-column grouping, category adjudication, moved script
 ### Status
 
 [OK] **Completed**
+
+
+## Session 3: Implement backend, MongoDB seeding and async aggregation APIs
+<!-- trellis-session: v=2 fp=ba6738be203c2f15 -->
+
+**Date**: 2026-10-18
+**Task**: Implement backend, MongoDB seeding and async aggregation APIs
+**Branch**: `main`
+
+### Summary
+
+Completed backend environment setup, docker-compose.yml for MongoDB, seed.py with 4 compound indexes, Motor async repository, 6 core aggregation endpoints, and automated test suite verifying AC-1~AC-4.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `58a30d9` | feat(backend): implement docker compose, mongodb seeding, and async aggregation apis |
+
+### Status
+
+[OK] **Completed**
