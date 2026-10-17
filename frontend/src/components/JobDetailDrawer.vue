@@ -1,0 +1,506 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import {
+  Briefcase,
+  Location,
+  School,
+  Files,
+  Discount,
+  Link,
+  WarningFilled,
+  CircleCheckFilled
+} from '@element-plus/icons-vue'
+import { getJobDetail } from '@/api/jobs'
+import type { JobItem } from '@/types/job'
+
+interface Props {
+  visible: boolean
+  jobId: string | null
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<{
+  (e: 'update:visible', value: boolean): void
+}>()
+
+const loading = ref(false)
+const job = ref<JobItem | null>(null)
+
+watch(
+  () => [props.visible, props.jobId],
+  async ([isVisible, id]) => {
+    if (isVisible && id) {
+      await fetchJob(id as string)
+    } else if (!isVisible) {
+      job.value = null
+    }
+  }
+)
+
+async function fetchJob(id: string) {
+  loading.value = true
+  try {
+    const data = await getJobDetail(id)
+    job.value = data
+  } catch (err) {
+    console.error('Failed to fetch job detail', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleClose() {
+  emit('update:visible', false)
+}
+</script>
+
+<template>
+  <el-drawer
+    :model-value="visible"
+    title="岗位全景档案与原始溯源"
+    size="680px"
+    destroy-on-close
+    class="job-detail-drawer"
+    @update:model-value="emit('update:visible', $event)"
+  >
+    <div v-loading="loading" class="drawer-content">
+      <template v-if="job">
+        <!-- Header Info -->
+        <div class="job-header">
+          <div class="job-title-row">
+            <h2 class="job-title">{{ job.title }}</h2>
+            <el-tag
+              v-if="job.job_category"
+              type="primary"
+              effect="light"
+              size="large"
+              class="category-tag"
+            >
+              {{ job.job_category }}
+            </el-tag>
+          </div>
+
+          <div class="company-row">
+            <span class="company-name">{{ job.company }}</span>
+            <el-tag v-if="job.company_type" size="small" type="info">{{ job.company_type }}</el-tag>
+            <el-tag v-if="job.company_size" size="small" type="info">{{ job.company_size }}</el-tag>
+          </div>
+
+          <div class="salary-highlight">
+            <span class="salary-display">{{ job.salary_display || '面议 / 未公开' }}</span>
+            <span v-if="job.salary_eligible_for_midpoint && job.salary_midpoint" class="midpoint-badge">
+              中位数核算值: <strong>{{ job.salary_midpoint.toLocaleString() }}</strong> 元/月
+            </span>
+            <span v-else class="midpoint-excluded">
+              <el-icon><WarningFilled /></el-icon>
+              {{ job.salary_exclude_reason || '不参与薪资统计中点计算' }}
+            </span>
+          </div>
+        </div>
+
+        <el-divider />
+
+        <!-- Key Meta Properties -->
+        <div class="section-title">
+          <el-icon><Briefcase /></el-icon>
+          <span>核心招聘画像 (原始 19 列映射)</span>
+        </div>
+
+        <el-descriptions :column="2" border size="default" class="meta-descriptions">
+          <el-descriptions-item label="工作地点">
+            <el-icon class="desc-icon"><Location /></el-icon>
+            {{ job.work_location || '未注明' }}
+            <span v-if="job.province" class="sub-location">({{ job.province }} · {{ job.city || '未注明市' }})</span>
+          </el-descriptions-item>
+
+          <el-descriptions-item label="学历门槛">
+            <el-icon class="desc-icon"><School /></el-icon>
+            {{ job.education_requirement || '不限' }}
+            <span v-if="job.education_min_code !== null && job.education_min_code !== undefined" class="sub-val">
+              (代码: {{ job.education_min_code }})
+            </span>
+          </el-descriptions-item>
+
+          <el-descriptions-item label="经验要求">
+            {{ job.experience_requirement || '不限' }}
+            <span v-if="job.experience_min_years !== null && job.experience_min_years !== undefined" class="sub-val">
+              ({{ job.experience_min_years }}年 / {{ job.experience_status || '标准' }})
+            </span>
+          </el-descriptions-item>
+
+          <el-descriptions-item label="专业要求">
+            {{ job.major_requirement || '不限' }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="招聘人数">
+            {{ job.recruitment_headcount ? `${job.recruitment_headcount} 人` : '若干 / 未注明' }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="发布时间">
+            {{ job.published_at || '未注明' }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="分类来源">
+            {{ job.category_source || '规则分类' }}
+          </el-descriptions-item>
+
+          <el-descriptions-item label="月薪范围">
+            <template v-if="job.salary_min_monthly !== null && job.salary_max_monthly !== null">
+              ¥{{ job.salary_min_monthly }} - ¥{{ job.salary_max_monthly }} / 月
+            </template>
+            <template v-else>
+              缺失有效月薪边界
+            </template>
+          </el-descriptions-item>
+        </el-descriptions>
+
+        <!-- Skills & Provenance -->
+        <div class="section-title mt-4">
+          <el-icon><Discount /></el-icon>
+          <span>技能图谱打标与证据溯源 (Provenance)</span>
+          <el-tag size="small" type="success" effect="plain" class="ml-2">
+            共计 {{ job.skills.length }} 项技能标签
+          </el-tag>
+        </div>
+
+        <div v-if="job.skills.length > 0" class="skills-provenance-list">
+          <div v-for="skill in job.skills" :key="skill.skill_name" class="skill-card">
+            <div class="skill-head">
+              <el-tag type="primary" effect="dark" size="default">
+                {{ skill.skill_name }}
+              </el-tag>
+              <span class="evidence-count">{{ skill.provenance.length }} 条依据引用</span>
+            </div>
+            <div class="provenance-items">
+              <div
+                v-for="(prov, idx) in skill.provenance"
+                :key="idx"
+                class="provenance-item"
+              >
+                <div class="prov-origin">
+                  <el-icon><CircleCheckFilled /></el-icon>
+                  <span>来源字段: <code>{{ prov.origin }}</code></span>
+                </div>
+                <div class="prov-evidence">
+                  “{{ prov.evidence }}”
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="empty-skills-tip">
+          <el-empty description="当前岗位组未打标特定技能标签 (遵循保留原始原则，不编造标签)" :image-size="60" />
+        </div>
+
+        <!-- Merge & Deduplication Audit -->
+        <div class="section-title mt-4">
+          <el-icon><Files /></el-icon>
+          <span>原始来源组与去重审计</span>
+        </div>
+
+        <div class="audit-card">
+          <div class="audit-row">
+            <span class="audit-label">组代表 ID (字典序最小):</span>
+            <code class="audit-code">{{ job.id }}</code>
+          </div>
+          <div class="audit-row">
+            <span class="audit-label">合并记录数:</span>
+            <el-tag :type="job.source_ids.length > 1 ? 'warning' : 'info'" size="small">
+              {{ job.source_ids.length }} 条原始抓取记录合并
+            </el-tag>
+          </div>
+          <div v-if="job.source_ids.length > 1" class="audit-sources">
+            <span class="audit-label">关联来源 IDs:</span>
+            <div class="source-id-tags">
+              <el-tag
+                v-for="sid in job.source_ids"
+                :key="sid"
+                size="small"
+                type="info"
+                effect="plain"
+              >
+                {{ sid }}
+              </el-tag>
+            </div>
+          </div>
+          <div v-if="job.source_url" class="audit-row">
+            <span class="audit-label">原始来源链接:</span>
+            <el-link
+              :href="job.source_url"
+              target="_blank"
+              type="primary"
+              :underline="false"
+              class="source-link"
+            >
+              <el-icon><Link /></el-icon>
+              <span>{{ job.source_url }}</span>
+            </el-link>
+          </div>
+        </div>
+
+        <!-- Full Job Description -->
+        <div class="section-title mt-4">
+          <el-icon><Files /></el-icon>
+          <span>原始招聘需求正文 (Description)</span>
+        </div>
+
+        <div class="description-box">
+          <pre class="desc-text">{{ job.description || '暂无原始需求描述文本' }}</pre>
+        </div>
+      </template>
+
+      <template v-else-if="!loading">
+        <el-empty description="未检索到岗位数据" />
+      </template>
+    </div>
+
+    <template #footer>
+      <el-button @click="handleClose">关闭抽屉</el-button>
+    </template>
+  </el-drawer>
+</template>
+
+<style scoped>
+.drawer-content {
+  padding: 4px 8px;
+}
+
+.job-header {
+  background: #f8fafd;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e9eef7;
+}
+
+.job-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2d3d;
+  line-height: 1.3;
+}
+
+.company-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.company-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.salary-highlight {
+  margin-top: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.salary-display {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ff6a00;
+  letter-spacing: -0.5px;
+}
+
+.midpoint-badge {
+  font-size: 13px;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.midpoint-badge strong {
+  font-size: 14px;
+}
+
+.midpoint-excluded {
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2d3d;
+  margin-bottom: 12px;
+}
+
+.mt-4 {
+  margin-top: 24px;
+}
+
+.ml-2 {
+  margin-left: 8px;
+}
+
+.meta-descriptions {
+  margin-top: 8px;
+}
+
+.desc-icon {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.sub-location,
+.sub-val {
+  color: #909399;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.skills-provenance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-card {
+  background: #fbfcfe;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.skill-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.evidence-count {
+  font-size: 12px;
+  color: #909399;
+}
+
+.provenance-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.provenance-item {
+  background: #ffffff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border-left: 3px solid #409eff;
+  font-size: 12px;
+}
+
+.prov-origin {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #606266;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.prov-origin code {
+  color: #409eff;
+  background: #f0f7ff;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.prov-evidence {
+  color: #303133;
+  line-height: 1.4;
+  font-family: monospace;
+}
+
+.audit-card {
+  background: #f9fafb;
+  border: 1px dashed #dcdfe6;
+  border-radius: 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.audit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-label {
+  color: #606266;
+  min-width: 130px;
+}
+
+.audit-code {
+  background: #eef2f7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #2b3a4a;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.audit-sources {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.source-id-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.source-link {
+  font-size: 12px;
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.description-box {
+  background: #fdfdfd;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 14px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.desc-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+.empty-skills-tip {
+  padding: 16px 0;
+}
+</style>

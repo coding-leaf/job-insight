@@ -1,19 +1,52 @@
-# 前端Vite多页面工程搭建与全局切片分析大盘
+# 前端Vite多页面工程搭建与全局切片分析大盘 (PRD)
 
 ## Goal
 
-基于 Vite 搭建 Vue 3 + TS 工程，集成 Element Plus、ECharts、Pinia 与 Vue Router，实现带 URL 同步的常驻切片次顶栏、Overview 总览、Salary 薪资、Skills 技能及 Jobs 岗位库页面。
+基于 Vite 搭建高质量 Vue 3 + TypeScript 工业级分析系统前端：
+1. 建立具有系统厚度的 4 大核心专业业务页面（`/overview` 总览大盘、`/salary` 薪资地域规模、`/skills` 技能图谱技术栈、`/jobs` 岗位深度检索库）；
+2. 搭建常驻次顶栏（Sticky Sub-Header）全局切片器，通过 Pinia Store 与 URL Query 双向同步，实现跨页面无缝共享分析切片范围；
+3. 全面集成成熟组件库 Element Plus（坚决不重复造 UI 轮子）与 Apache ECharts，直接对接 FastAPI 后端真实聚合数据；
+4. 严格恪守核心工程准则：
+   - **代码为准则**：严谨 TypeScript 类型定义，与后端 Pydantic 数据契约 100% 对齐；
+   - **架构应复用**：统一 Axios 请求拦截、统一 Pinia 全局切片状态、通用 ECharts 图表自适应 hook；
+   - **方法要深函数**：组件对外提供极其精炼的 Props/Events，将图表配置、数据映射与边界处理内敛；
+   - **KISS 准则**：保持代码结构透明工整，杜绝过度设计的状态机与无用包装；
+   - **绝不编纂数据**：所有页面图表与明细数据 100% 动态读取自真实后端 API，严禁前端硬编码伪造假数据。
 
 ## Requirements
 
-- TBD
+1. **工程骨架与依赖**：
+   - 使用 Vite 官方 `vue-ts` 模板初始化在 `frontend/`；
+   - 核心依赖：`vue@^3.4`, `vue-router@^4.3`, `pinia@^2.1`, `element-plus@^2.6`, `echarts@^5.5`, `axios@^1.6`；
+   - Vite 代理配置：自动将 `/api` 代理到本地后端 `http://127.0.0.1:8000`。
+2. **顶层导航与常驻切片次顶栏 (Global Slicer)**：
+   - **主顶栏 (`GlobalHeader`)**：系统 Logo/名称、4 大路由导航链接、全量数据基准标识（2,251 组）；
+   - **常驻次顶栏 (`GlobalSlicer`)**：
+     - 下拉选择项：技术类别（11 类别）、工作省份（31 省份）、学历门槛（大专/本科/硕士等）；
+     - 包含“一键重置筛选”按钮；
+     - 状态存储于 Pinia，并与当前 URL Query（`?category=...&province=...`）实时双向同步，刷新或前进后退保持状态不变。
+3. **四核心业务页面**：
+   - **页面 1：`/overview` (系统综合总览与导航)**：
+     - 核心指标卡片（总在招样本 2,251、有效薪资样本 2,194、技能打标基准 833、重复合并 305）；
+     - 整体市场全貌（技术方向构成比环形图、全行业薪资中位数基准线 12,000 元/月）；
+     - 3 大专题快速跳转引导卡。
+   - **页面 2：`/salary` (薪资分布、地域梯度与企业规模)**：
+     - 岗位类别薪资中位数排行（横向条形图，标注样本量 N，样本 < 5 明确预警）；
+     - 31 省级行政区薪资梯度排行与地图/柱状分布；
+     - 企业规模薪资水平箱线/柱状对比。
+   - **页面 3：`/skills` (技术栈与核心技能图谱)**：
+     - Top 20 核心技能渗透率条形图（严谨标注双分母覆盖率：833 标注基准比 vs 2251 全量基准比）；
+     - 各技术类别核心技能雷达画像；
+     - 技能组合共现分析。
+   - **页面 4：`/jobs` (在招岗位多维检索与透视库)**：
+     - 继承常驻切片过滤，支持关键词搜索、薪资区间过滤；
+     - 高密度分页表格（`el-table` + `el-pagination`）；
+     - 岗位详情穿透抽屉（`el-drawer`）：展示原始 19 列分组代表 ID、企业全称、招聘需求全文、技能命中溯源依据链。
 
 ## Acceptance Criteria
 
-- [ ] TBD
-
-## Notes
-
-- Keep `prd.md` focused on requirements, constraints, and acceptance criteria.
-- Lightweight tasks can remain PRD-only.
-- For complex tasks, add `design.md` for technical design and `implement.md` for execution planning before `task.py start`.
+- [ ] **AC-1 (工程构建与类型检查)**：`frontend/` 工程搭建完毕，`npm run build` 和 `vue-tsc` 成功通过，0 语法与类型错误。
+- [ ] **AC-2 (路由与导航流转)**：Vue Router 成功挂载 4 个页面（`/overview`, `/salary`, `/skills`, `/jobs`），默认重定向至 `/overview`，页面跳转无白屏、无闪烁。
+- [ ] **AC-3 (全局切片器与 URL 双向同步)**：在任意页面改变次顶栏切片条件，URL Query 自动更新；切换页面时切片状态保持；刷新页面后正确从 URL 恢复筛选条件。
+- [ ] **AC-4 (真实数据对接与口径一致)**：所有页面通过 Axios 请求真实后端接口（`/api/v1/*`），图表完整渲染真实指标，样本量不足 5 组正确标记预警，技能严格提供双分母百分比，杜绝任何假数据。
+- [ ] **AC-5 (岗位明细与详情穿透)**：`/jobs` 分页表格正常翻页、搜索；点击任意行正确调起详情抽屉，展示原始 19 列未修饰字段与技能依据。
