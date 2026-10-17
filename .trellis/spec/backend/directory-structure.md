@@ -1,54 +1,46 @@
-# Directory Structure
-
-> How backend code is organized in this project.
-
----
+# Backend Directory Structure & Module Layout
 
 ## Overview
 
-<!--
-Document your project's backend directory structure here.
-
-Questions to answer:
-- How are modules/packages organized?
-- Where does business logic live?
-- Where are API endpoints defined?
-- How are utilities and helpers organized?
--->
-
-(To be filled by the team)
+Backend is implemented using Python 3.11 with FastAPI (async ASGI), Motor (async MongoDB driver), and Pydantic v2. Business logic and aggregations live in `app/db/repository.py`, and endpoints are organized in `app/api/v1/endpoints/`.
 
 ---
 
 ## Directory Layout
 
+```text
+backend/
+├── app/
+│   ├── api/
+│   │   ├── deps.py               # Shared Query filter dependency (FilterParams)
+│   │   └── v1/
+│   │       ├── api.py            # API router aggregator
+│   │       └── endpoints/
+│   │           ├── meta.py       # GET /api/v1/meta/options
+│   │           ├── overview.py   # GET /api/v1/overview
+│   │           ├── stats.py      # GET /api/v1/stats/* (salary, region, skills)
+│   │           └── jobs.py       # GET /api/v1/jobs & /api/v1/jobs/{id}
+│   ├── core/
+│   │   └── config.py             # Pydantic BaseSettings loading .env
+│   ├── db/
+│   │   ├── mongodb.py            # Motor AsyncIOMotorClient lifespan management
+│   │   ├── repository.py         # Async query repository with native pipelines & offline fallback
+│   │   └── seed.py               # Database seeding and index creation script
+│   ├── schemas/
+│   │   ├── response.py           # Unified ResponseModel[T] ({ code, message, data })
+│   │   └── job.py                # Job, Stats, and Filter Pydantic models
+│   └── main.py                   # FastAPI app entrypoint, CORS, exception handlers
+├── tests/
+│   ├── conftest.py               # Async test fixtures
+│   └── test_api.py               # AC verification tests
+├── requirements.txt              # Pinned backend dependencies
+└── .env.example                  # Environment template
 ```
-<!-- Replace with your actual structure -->
-src/
-├── ...
-└── ...
-```
 
 ---
 
-## Module Organization
+## API & Response Conventions
 
-<!-- How should new features/modules be organized? -->
-
-(To be filled by the team)
-
----
-
-## Naming Conventions
-
-<!-- File and folder naming rules -->
-
-(To be filled by the team)
-
----
-
-## Examples
-
-<!-- Link to well-organized modules as examples -->
-
-(To be filled by the team)
+1. **Unified Envelope**: All API endpoints return `ResponseModel[T]` (`{ "code": 200, "message": "success", "data": ... }`).
+2. **Global Slicing Support**: All `/stats/*` and `/jobs` endpoints inject `FilterParams` (`category`, `province`, `education`).
+3. **Async Non-blocking**: Endpoints are defined with `async def` and invoke asynchronous methods on the repository.

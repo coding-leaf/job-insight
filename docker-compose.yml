@@ -1,0 +1,14 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: job_insight_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=job_insight
+
+volumes:
+  mongo_data:

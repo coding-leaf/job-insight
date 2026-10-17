@@ -1,0 +1,29 @@
+{
+  "id": "system-implementation",
+  "name": "system-implementation",
+  "title": "全栈多页面数据分析与检索系统实现",
+  "description": "JobInsight 全栈多页面数据分析系统总任务：涵盖 Docker MongoDB 环境编排、FastAPI 异步聚合 API 与 Vue 3 多页面全局切片分析台。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "coding-leaf",
+  "assignee": "coding-leaf",
+  "createdAt": "2026-10-18",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "10-18-backend-data-and-api",
+    "10-18-frontend-analytics-views"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
