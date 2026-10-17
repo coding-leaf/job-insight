@@ -1,0 +1,309 @@
+{
+  "files": [
+    {
+      "path": "..\\清洗后数据\\jobs_clean_final.csv",
+      "sha256": "9115d09875b3b11b2b2af584e45023ac95d6955f37b6d33b9b777a84b8a84a00",
+      "rows": 3000,
+      "columns": [
+        "id",
+        "source_url",
+        "published_at",
+        "title",
+        "company",
+        "company_type",
+        "company_size",
+        "work_location",
+        "province",
+        "city",
+        "salary_display",
+        "salary_min_monthly",
+        "salary_max_monthly",
+        "education_requirement",
+        "education_min_code",
+        "experience_requirement",
+        "experience_min_years",
+        "experience_status",
+        "major_requirement",
+        "description",
+        "recruitment_headcount"
+      ]
+    },
+    {
+      "path": "..\\清洗后数据\\skills.csv",
+      "sha256": "937b05c9791ad9e75228dfe5ad5994c140f4cf06c93f26c1492190a7b9d3133c",
+      "rows": 24,
+      "columns": [
+        "skill_name"
+      ]
+    },
+    {
+      "path": "..\\清洗后数据\\job_skills.csv",
+      "sha256": "f95e85e77ebb77321868587931dac2e0bbb5a2a6bd3bab37ef503b0c8cda528e",
+      "rows": 2880,
+      "columns": [
+        "job_id",
+        "skill_name",
+        "origin",
+        "evidence"
+      ]
+    }
+  ],
+  "nonempty": {
+    "id": 3000,
+    "source_url": 3000,
+    "published_at": 3000,
+    "title": 3000,
+    "company": 3000,
+    "company_type": 850,
+    "company_size": 1493,
+    "work_location": 3000,
+    "province": 2748,
+    "city": 646,
+    "salary_display": 3000,
+    "salary_min_monthly": 3000,
+    "salary_max_monthly": 2911,
+    "education_requirement": 3000,
+    "education_min_code": 3000,
+    "experience_requirement": 3000,
+    "experience_min_years": 17,
+    "experience_status": 3000,
+    "major_requirement": 1609,
+    "description": 1791,
+    "recruitment_headcount": 1779
+  },
+  "unique_ids": 3000,
+  "groups": 2251,
+  "duplicate_groups": 305,
+  "excess_duplicate_rows": 749,
+  "skill_link_unique": 2880,
+  "skill_jobs": 1107,
+  "skill_groups": 833,
+  "orphan_jobs": 0,
+  "orphan_skills": 0,
+  "inverted_display": [
+    {
+      "id": "ncss:Am6VEAbf4rZZ4mwyaKuHBe",
+      "salary_display": "40-25K/月",
+      "salary_min_monthly": "25000",
+      "salary_max_monthly": "40000.0"
+    },
+    {
+      "id": "ncss:DBvsD7jVecfg3YmmnLaSHo",
+      "salary_display": "35-10K/月",
+      "salary_min_monthly": "10000",
+      "salary_max_monthly": "35000.0"
+    },
+    {
+      "id": "ncss:gmFNdf4Ef3TeSbWzfEeon",
+      "salary_display": "15-8K/月",
+      "salary_min_monthly": "8000",
+      "salary_max_monthly": "15000.0"
+    }
+  ],
+  "numeric_inverted": 0,
+  "salary_missing_max": 89,
+  "raw_columns": [
+    "record_id",
+    "source_site",
+    "source_url",
+    "collected_at",
+    "raw_path",
+    "job_title",
+    "company_name",
+    "industry",
+    "job_category",
+    "province",
+    "city",
+    "work_place",
+    "salary_text",
+    "salary_min_monthly",
+    "salary_max_monthly",
+    "salary_mid_monthly",
+    "salary_unit",
+    "education",
+    "experience",
+    "work_type",
+    "headcount",
+    "published_at",
+    "deadline_at",
+    "description",
+    "skills",
+    "company_size",
+    "source_page_url",
+    "original_source_url",
+    "quality_flags",
+    "major_requirement",
+    "ownership"
+  ],
+  "raw_sample": {
+    "salary_text": "30-50K/月",
+    "salary_min_monthly": "30000",
+    "salary_max_monthly": "50000.0",
+    "salary_mid_monthly": "40000.0",
+    "salary_unit": "元/月"
+  },
+  "province_values": [
+    "上海市",
+    "云南省",
+    "内蒙古省",
+    "北京市",
+    "吉林省",
+    "四川省",
+    "天津市",
+    "安徽省",
+    "山东省",
+    "山西省",
+    "广东省",
+    "广西省",
+    "新疆省",
+    "江苏省",
+    "江西省",
+    "河北省",
+    "河南省",
+    "浙江省",
+    "湖北省",
+    "湖南省",
+    "甘肃省",
+    "福建省",
+    "西藏省",
+    "贵州省",
+    "辽宁省",
+    "重庆市",
+    "陕西省",
+    "黑龙江省"
+  ],
+  "city_counts": {
+    "(empty)": 2354,
+    "上海市": 234,
+    "北京市": 265,
+    "重庆市": 122,
+    "天津市": 25
+  },
+  "education_counts": {
+    "博士及以上": 45,
+    "硕士及以上": 551,
+    "本科及以上": 1398,
+    "不限": 966,
+    "大专及以上": 40
+  },
+  "experience_counts": {
+    "未注明": 2624,
+    "应届/校招": 359,
+    "年限要求": 17
+  },
+  "source_audit": {
+    "raw_rows": 3000,
+    "matching_ids": 3000,
+    "raw_nonempty": {
+      "industry": 1645,
+      "job_category": 1830,
+      "city": 3000,
+      "experience": 3000,
+      "description": 1791
+    },
+    "raw_examples": {
+      "industry": [
+        [
+          "其他",
+          788
+        ],
+        [
+          "民营企业",
+          450
+        ],
+        [
+          "国有企业",
+          269
+        ],
+        [
+          "机关/事业单位/非营利机构",
+          53
+        ],
+        [
+          "外商独资/外企代表处",
+          41
+        ]
+      ],
+      "job_category": [
+        [
+          "不限专业",
+          414
+        ],
+        [
+          "计算机类",
+          131
+        ],
+        [
+          "其他",
+          123
+        ],
+        [
+          "计算机科学与技术",
+          83
+        ],
+        [
+          "民营企业",
+          51
+        ]
+      ],
+      "city": [
+        [
+          "广东",
+          585
+        ],
+        [
+          "江苏",
+          556
+        ],
+        [
+          "浙江",
+          285
+        ],
+        [
+          "北京",
+          265
+        ],
+        [
+          "全国",
+          252
+        ]
+      ]
+    },
+    "salary_difference_count": 869,
+    "salary_difference_examples": [
+      {
+        "id": "ncss:82ZqzyLjjr85Dw76Q7QzJk",
+        "clean": [
+          "20000",
+          "99000.0"
+        ],
+        "raw": [
+          "20000",
+          "99900.0"
+        ]
+      },
+      {
+        "id": "ncss:SBbD7ApFsL4UkahBVpGBLG",
+        "clean": [
+          "15000",
+          "99000.0"
+        ],
+        "raw": [
+          "15000",
+          "99900.0"
+        ]
+      },
+      {
+        "id": "ncss:TR6yJLFvUSg6WCDEEYag8s",
+        "clean": [
+          "15000",
+          "99000.0"
+        ],
+        "raw": [
+          "15000",
+          "99900.0"
+        ]
+      }
+    ]
+  }
+}

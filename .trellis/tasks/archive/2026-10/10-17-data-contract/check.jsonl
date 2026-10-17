@@ -1,0 +1,4 @@
+{"file": "PROJECT_HANDOFF.md", "reason": "Existing decisions and data boundaries; accepted PRD supersedes historical pending items"}
+{"file": ".trellis/tasks/archive/2026-10/10-17-data-contract/research/data-audit.json", "reason": "Verified input schema, counts, hashes and known source anomalies"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "Data ownership and consistent boundary contracts"}
+{"file": ".trellis/spec/backend/data-contract.md", "reason": "Approved data-boundary contract and links to documentation under review"}

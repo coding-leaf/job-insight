@@ -1,0 +1,4 @@
+{"file": "docs/data-preparation-checklist.md", "reason": "验收标准场景核对，包括原始三份CSV哈希不变、2251组数、薪资排除等"}
+{"file": "docs/job-classification.md", "reason": "岗位分类验收标准，包括9列CSV格式约束、单来源与组级冲突解决验证"}
+{"file": "docs/statistical-methodology.md", "reason": "口径验证，包括19列原始分组逻辑、薪资中点与中位数算法、技能覆盖率计算"}
+{"file": ".trellis/spec/backend/data-contract.md", "reason": "后端数据契约质量与边界验证"}

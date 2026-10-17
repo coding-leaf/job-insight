@@ -1,0 +1,5 @@
+{"file": "docs/data-preparation-checklist.md", "reason": "数据准备与验收清单，规定2026-10-17快照、哈希校验、已知异常及验收场景"}
+{"file": "docs/job-classification.md", "reason": "岗位分类契约，规定11个固定标签、双路提案独立性、9列CSV格式与组级冲突解决规则"}
+{"file": "docs/statistical-methodology.md", "reason": "统计口径规范，规定原始19列精确分组、薪资闭区间计算与技能频次分母口径"}
+{"file": "docs/data-dictionary.md", "reason": "字段字典，规定21列输入与投影数据结构、空值与数值类型契约"}
+{"file": ".trellis/spec/backend/data-contract.md", "reason": "后端数据契约技术规范，包含验证矩阵与测试要求"}

@@ -1,0 +1,10 @@
+{
+  "assertions": "pass",
+  "source_hashes": "unchanged",
+  "group_count": 2251,
+  "salary_eligible_groups": 2194,
+  "salary_missing_max_groups": 54,
+  "reversed_display_groups": 3,
+  "skill_groups": 833,
+  "group_skill_coverage": 37.0058
+}
