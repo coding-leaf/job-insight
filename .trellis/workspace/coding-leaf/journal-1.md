@@ -104,3 +104,25 @@ Completed frontend Vite Vue 3 TypeScript project with Element Plus, Apache EChar
 ### Status
 
 [OK] **Completed**
+
+
+## Session 5: Refactor backend repository with native Motor MongoDB aggregation pipelines
+<!-- trellis-session: v=2 fp=81f9bbc4867e66d2 -->
+
+**Date**: 2026-10-18
+**Task**: Refactor backend repository with native Motor MongoDB aggregation pipelines
+**Branch**: `main`
+
+### Summary
+
+Refactored repository.py to implement native MongoDB aggregation pipelines with , +, , and index-accelerated queries, verified with 20 automated tests passing, and archived task.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5d0a445` | feat(backend): refactor repository with native Motor MongoDB aggregation pipelines |
+
+### Status
+
+[OK] **Completed**
