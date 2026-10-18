@@ -9,9 +9,10 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 import statistics
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -19,6 +20,7 @@ from app.db.mongodb import get_database
 from app.schemas.job import (
     CategoryProportion,
     CategorySalaryStat,
+    JobItem,
     JobListData,
     MetaOptionsData,
     OverviewData,
@@ -103,6 +105,57 @@ def compute_percentiles(
     return round(med, 2), p25, p75
 
 
+def _build_mongo_filter(
+    category: str | None = None,
+    province: str | None = None,
+    education: str | None = None,
+    keyword: str | None = None,
+    min_salary: int | None = None,
+    max_salary: int | None = None,
+    has_skills: bool | None = None,
+) -> dict[str, Any]:
+    """Build standard MongoDB query dict from filtering parameters."""
+    query: dict[str, Any] = {}
+
+    if category:
+        if category in ("未分类", "null", "None"):
+            query["job_category"] = None
+        else:
+            query["job_category"] = category
+
+    if province:
+        if province in ("未注明", "null", "None"):
+            query["province"] = None
+        else:
+            query["province"] = province
+
+    if education:
+        query["education_requirement"] = education
+
+    if has_skills is not None:
+        query["skills.0"] = {"$exists": bool(has_skills)}
+
+    if min_salary is not None or max_salary is not None:
+        query["salary_eligible_for_midpoint"] = True
+        if min_salary is not None:
+            query["salary_max_monthly"] = {"$gte": min_salary}
+        if max_salary is not None:
+            query["salary_min_monthly"] = {"$lte": max_salary}
+
+    if keyword:
+        kw = keyword.strip()
+        if kw:
+            pattern = {"$regex": re.escape(kw), "$options": "i"}
+            query["$or"] = [
+                {"title": pattern},
+                {"company": pattern},
+                {"description": pattern},
+                {"skills.skill_name": pattern},
+            ]
+
+    return query
+
+
 class JobRepository:
     def __init__(self) -> None:
         self._dataset: list[dict[str, Any]] = []
@@ -138,11 +191,9 @@ class JobRepository:
                         self._id_index[item["id"]] = item
                         for sid in item.get("source_ids", []):
                             self._id_index[sid] = item
-                    logger.info(
-                        "Loaded in-memory dataset with %d records.", len(self._dataset)
-                    )
+                    logger.info("Loaded in-memory dataset with %d records.", len(self._dataset))
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning("Could not load in-memory dataset: %e", e)
+                logger.warning("Could not load in-memory dataset: %s", e)
         else:
             logger.warning("jobs_cleaned_grouped.json could not be found.")
 
@@ -206,12 +257,7 @@ class JobRepository:
             skills_text = " ".join(
                 s.get("skill_name", "") for s in (job.get("skills") or [])
             ).lower()
-            if (
-                kw not in title
-                and kw not in company
-                and kw not in desc
-                and kw not in skills_text
-            ):
+            if kw not in title and kw not in company and kw not in desc and kw not in skills_text:
                 return False
 
         return True
@@ -241,14 +287,355 @@ class JobRepository:
             )
         ]
 
+    # --- Native MongoDB Asynchronous Aggregation Methods ---
+
+    _build_mongo_filter = staticmethod(_build_mongo_filter)
+
+    async def _mongo_get_overview(
+        self,
+        db: AsyncIOMotorDatabase,
+        match_filter: dict[str, Any],
+    ) -> OverviewData:
+        """Calculate KPI overview metrics via MongoDB $facet aggregation pipeline."""
+        pipeline: list[dict[str, Any]] = [
+            *([{"$match": match_filter}] if match_filter else []),
+            {
+                "$facet": {
+                    "total": [{"$count": "count"}],
+                    "eligible_salaries": [
+                        {"$match": {"salary_eligible_for_midpoint": True}},
+                        {"$sort": {"salary_midpoint": 1}},
+                        {"$project": {"salary_midpoint": 1}},
+                    ],
+                    "tagged_skills_count": [
+                        {"$match": {"skills.0": {"$exists": True}}},
+                        {"$count": "count"},
+                    ],
+                    "duplicate_groups_count": [
+                        {"$match": {"source_ids.1": {"$exists": True}}},
+                        {"$count": "count"},
+                    ],
+                    "categories": [
+                        {
+                            "$group": {
+                                "_id": {"$ifNull": ["$job_category", "未分类"]},
+                                "count": {"$sum": 1},
+                            }
+                        }
+                    ],
+                }
+            },
+        ]
+        res = await db.jobs.aggregate(pipeline).to_list(length=None)
+        data = res[0] if res else {}
+
+        total_jobs = data["total"][0]["count"] if data.get("total") else 0
+        eligible_salaries = [
+            doc["salary_midpoint"]
+            for doc in data.get("eligible_salaries", [])
+            if doc.get("salary_midpoint") is not None
+        ]
+        eligible_count = len(eligible_salaries)
+        tagged_skills_jobs = (
+            data["tagged_skills_count"][0]["count"] if data.get("tagged_skills_count") else 0
+        )
+        duplicate_groups = (
+            data["duplicate_groups_count"][0]["count"] if data.get("duplicate_groups_count") else 0
+        )
+
+        overall_median = None
+        if eligible_count > 0:
+            overall_median, _, _ = compute_percentiles(eligible_salaries)
+
+        coverage_ratio = round(tagged_skills_jobs / total_jobs, 4) if total_jobs > 0 else None
+
+        raw_categories = data.get("categories", [])
+        raw_categories.sort(key=lambda x: -x["count"])
+        breakdown = [
+            CategoryProportion(
+                category=c["_id"],
+                count=c["count"],
+                ratio=round(c["count"] / total_jobs, 4) if total_jobs > 0 else 0.0,
+            )
+            for c in raw_categories
+        ]
+
+        return OverviewData(
+            total_jobs=total_jobs,
+            eligible_salary_jobs=eligible_count,
+            tagged_skills_jobs=tagged_skills_jobs,
+            duplicate_groups=duplicate_groups,
+            overall_salary_median=overall_median,
+            skill_coverage_ratio=coverage_ratio,
+            category_breakdown=breakdown,
+        )
+
+    _aggregate_overview = _mongo_get_overview
+
+    async def _mongo_get_salary_by_category(
+        self,
+        db: AsyncIOMotorDatabase,
+        match_filter: dict[str, Any],
+    ) -> list[CategorySalaryStat]:
+        """Category salary stats via MongoDB $sort -> $group aggregation pipeline."""
+        pipeline: list[dict[str, Any]] = [
+            *([{"$match": match_filter}] if match_filter else []),
+            {"$sort": {"salary_midpoint": 1}},
+            {
+                "$group": {
+                    "_id": {"$ifNull": ["$job_category", "未分类"]},
+                    "sample_count": {"$sum": 1},
+                    "salaries": {
+                        "$push": {
+                            "$cond": [
+                                {"$eq": ["$salary_eligible_for_midpoint", True]},
+                                "$salary_midpoint",
+                                "$$REMOVE",
+                            ]
+                        }
+                    },
+                }
+            },
+        ]
+        docs = await db.jobs.aggregate(pipeline).to_list(length=None)
+        results: list[CategorySalaryStat] = []
+        for doc in docs:
+            cat = doc["_id"]
+            tot = doc["sample_count"]
+            salaries = [s for s in doc.get("salaries", []) if s is not None]
+            elig = len(salaries)
+            med, p25, p75 = compute_percentiles(salaries)
+            is_low = elig < 5
+            results.append(
+                CategorySalaryStat(
+                    category=cat,
+                    sample_count=tot,
+                    eligible_count=elig,
+                    median=med,
+                    p25=p25,
+                    p75=p75,
+                    is_low_sample=is_low,
+                )
+            )
+
+        # Rank eligible categories (excluding "未分类" and low sample items from ranking)
+        rankable = [
+            r
+            for r in results
+            if not r.is_low_sample and r.category != "未分类" and r.median is not None
+        ]
+        rankable.sort(key=lambda x: (-(x.median or 0.0), x.category))
+        for idx, item in enumerate(rankable, start=1):
+            item.rank = idx
+
+        unranked = [r for r in results if r.rank is None]
+        unranked.sort(key=lambda x: (-(x.median or 0), x.category))
+
+        return rankable + unranked
+
+    _aggregate_salary_by_category = _mongo_get_salary_by_category
+
+    async def _mongo_get_salary_by_region(
+        self,
+        db: AsyncIOMotorDatabase,
+        match_filter: dict[str, Any],
+    ) -> list[RegionSalaryStat]:
+        """Province salary stats via MongoDB $sort -> $group aggregation pipeline."""
+        pipeline: list[dict[str, Any]] = [
+            *([{"$match": match_filter}] if match_filter else []),
+            {"$sort": {"salary_midpoint": 1}},
+            {
+                "$group": {
+                    "_id": {"$ifNull": ["$province", "未注明"]},
+                    "sample_count": {"$sum": 1},
+                    "salaries": {
+                        "$push": {
+                            "$cond": [
+                                {"$eq": ["$salary_eligible_for_midpoint", True]},
+                                "$salary_midpoint",
+                                "$$REMOVE",
+                            ]
+                        }
+                    },
+                }
+            },
+        ]
+        docs = await db.jobs.aggregate(pipeline).to_list(length=None)
+        results: list[RegionSalaryStat] = []
+        for doc in docs:
+            prov = doc["_id"]
+            tot = doc["sample_count"]
+            salaries = [s for s in doc.get("salaries", []) if s is not None]
+            elig = len(salaries)
+            med, p25, p75 = compute_percentiles(salaries)
+            is_low = elig < 5
+            results.append(
+                RegionSalaryStat(
+                    province=prov,
+                    sample_count=tot,
+                    eligible_count=elig,
+                    median=med,
+                    p25=p25,
+                    p75=p75,
+                    is_low_sample=is_low,
+                )
+            )
+
+        # Rank eligible provinces (unknown/未注明 and low sample excluded from ranking)
+        rankable = [
+            r
+            for r in results
+            if not r.is_low_sample and r.province not in ("未注明", "其他") and r.median is not None
+        ]
+        rankable.sort(key=lambda x: (-(x.median or 0.0), x.province))
+        for idx, item in enumerate(rankable, start=1):
+            item.rank = idx
+
+        unranked = [r for r in results if r.rank is None]
+        unranked.sort(key=lambda x: (-(x.median or 0), x.province))
+
+        return rankable + unranked
+
+    _aggregate_salary_by_region = _mongo_get_salary_by_region
+
+    async def _mongo_get_skills_top(
+        self,
+        db: AsyncIOMotorDatabase,
+        match_filter: dict[str, Any],
+        limit: int = 20,
+    ) -> SkillsTopData:
+        """Top skills via MongoDB $unwind -> $group aggregation pipeline with dual denominators."""
+        pipeline: list[dict[str, Any]] = [
+            *([{"$match": match_filter}] if match_filter else []),
+            {
+                "$facet": {
+                    "meta": [
+                        {
+                            "$group": {
+                                "_id": None,
+                                "total": {"$sum": 1},
+                                "tagged": {
+                                    "$sum": {
+                                        "$cond": [
+                                            {
+                                                "$gt": [
+                                                    {"$size": {"$ifNull": ["$skills", []]}},
+                                                    0,
+                                                ]
+                                            },
+                                            1,
+                                            0,
+                                        ]
+                                    }
+                                },
+                            }
+                        }
+                    ],
+                    "skills": [
+                        {"$unwind": "$skills"},
+                        {
+                            "$match": {
+                                "skills.skill_name": {
+                                    "$exists": True,
+                                    "$nin": [None, ""],
+                                }
+                            }
+                        },
+                        {
+                            "$group": {
+                                "_id": "$skills.skill_name",
+                                "count": {"$sum": 1},
+                            }
+                        },
+                        {"$sort": {"count": -1, "_id": 1}},
+                        {"$limit": limit},
+                    ],
+                }
+            },
+        ]
+        docs = await db.jobs.aggregate(pipeline).to_list(length=None)
+        doc = docs[0] if docs else {}
+        meta = doc.get("meta", [{}])[0] if doc.get("meta") else {}
+        total_jobs = meta.get("total", 0)
+        tagged_skills_jobs = meta.get("tagged", 0)
+        coverage_ratio = round(tagged_skills_jobs / total_jobs, 4) if total_jobs > 0 else None
+
+        raw_skills = doc.get("skills", [])
+        skill_items = [
+            SkillStatItem(
+                skill_name=s["_id"],
+                count=s["count"],
+                ratio_annotated=(
+                    round(s["count"] / tagged_skills_jobs, 4) if tagged_skills_jobs > 0 else None
+                ),
+                ratio_total=(round(s["count"] / total_jobs, 4) if total_jobs > 0 else None),
+            )
+            for s in raw_skills
+        ]
+
+        return SkillsTopData(
+            total_jobs=total_jobs,
+            tagged_skills_jobs=tagged_skills_jobs,
+            coverage_ratio=coverage_ratio,
+            skills=skill_items,
+        )
+
+    _aggregate_skills_top = _mongo_get_skills_top
+
+    async def _mongo_get_jobs(
+        self,
+        db: AsyncIOMotorDatabase,
+        query: dict[str, Any],
+        page: int = 1,
+        page_size: int = 20,
+        sort_by: str = "id",
+        sort_order: str = "asc",
+    ) -> JobListData:
+        """Paginated search with multi-dimensional filtering via MongoDB cursor."""
+        total = await db.jobs.count_documents(query)
+        total_pages = math.ceil(total / page_size) if total > 0 else 0
+
+        direction = -1 if sort_order.lower() == "desc" else 1
+        skip = (page - 1) * page_size
+        cursor = (
+            db.jobs.find(query, {"_id": 0}).sort(sort_by, direction).skip(skip).limit(page_size)
+        )
+        items = await cursor.to_list(length=page_size)
+
+        return JobListData(
+            items=cast(list[JobItem], items),
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+
+    _query_jobs = _mongo_get_jobs
+
+    async def _mongo_get_job_by_id(
+        self,
+        db: AsyncIOMotorDatabase,
+        job_id: str,
+    ) -> dict[str, Any] | None:
+        """Find a job by representative id or member source id via MongoDB."""
+        return await db.jobs.find_one(
+            {"$or": [{"id": job_id}, {"source_ids": job_id}]},
+            {"_id": 0},
+        )
+
+    # --- Public API Methods with Dual Dispatching ---
+
     async def get_meta_options(self) -> MetaOptionsData:
         """Return available options for query filters."""
-        # Categories: official 11 + '未分类'
         categories = list(OFFICIAL_CATEGORIES)
         categories.append("未分类")
 
-        # Provinces: gather all known provinces in dataset, supplemented with standard 31
-        dataset_provinces = {j["province"] for j in self._dataset if j.get("province")}
+        db: AsyncIOMotorDatabase | None = get_database()
+        if db is not None:
+            dataset_provinces = set(await db.jobs.distinct("province", {"province": {"$ne": None}}))
+        else:
+            dataset_provinces = {j["province"] for j in self._dataset if j.get("province")}
+
         ordered_provinces = [p for p in ALL_PROVINCES if p in dataset_provinces]
         for p in dataset_provinces:
             if p not in ordered_provinces:
@@ -267,6 +654,14 @@ class JobRepository:
         education: str | None = None,
     ) -> OverviewData:
         """Calculate KPI overview metrics."""
+        db: AsyncIOMotorDatabase | None = get_database()
+        if db is not None:
+            match_filter = self._build_mongo_filter(
+                category=category, province=province, education=education
+            )
+            return await self._mongo_get_overview(db, match_filter)
+
+        logger.info("MongoDB offline or uninitialized: using in-memory get_overview.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -275,9 +670,7 @@ class JobRepository:
         eligible_jobs = [j for j in filtered if j.get("salary_eligible_for_midpoint")]
         eligible_count = len(eligible_jobs)
 
-        tagged_skills_jobs = sum(
-            1 for j in filtered if j.get("skills") and len(j["skills"]) > 0
-        )
+        tagged_skills_jobs = sum(1 for j in filtered if j.get("skills") and len(j["skills"]) > 0)
 
         duplicate_groups = sum(1 for j in filtered if len(j.get("source_ids", [])) > 1)
 
@@ -286,11 +679,8 @@ class JobRepository:
             salaries = [j["salary_midpoint"] for j in eligible_jobs]
             overall_median, _, _ = compute_percentiles(salaries)
 
-        coverage_ratio = (
-            round(tagged_skills_jobs / total_jobs, 4) if total_jobs > 0 else None
-        )
+        coverage_ratio = round(tagged_skills_jobs / total_jobs, 4) if total_jobs > 0 else None
 
-        # Category breakdown
         cat_counts: dict[str, int] = {}
         for j in filtered:
             cat = j.get("job_category") or "未分类"
@@ -322,6 +712,14 @@ class JobRepository:
         education: str | None = None,
     ) -> list[CategorySalaryStat]:
         """Category salary stats with P25, median, P75 and sample size threshold (<5)."""
+        db: AsyncIOMotorDatabase | None = get_database()
+        if db is not None:
+            match_filter = self._build_mongo_filter(
+                category=category, province=province, education=education
+            )
+            return await self._mongo_get_salary_by_category(db, match_filter)
+
+        logger.info("MongoDB offline or uninitialized: using in-memory get_salary_by_category.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -354,17 +752,15 @@ class JobRepository:
                 )
             )
 
-        # Rank eligible categories (excluding "未分类" and low sample items from ranking)
         rankable = [
             r
             for r in results
             if not r.is_low_sample and r.category != "未分类" and r.median is not None
         ]
-        rankable.sort(key=lambda x: (-x.median, x.category))
+        rankable.sort(key=lambda x: (-(x.median or 0.0), x.category))
         for idx, item in enumerate(rankable, start=1):
             item.rank = idx
 
-        # Sort overall list: ranked first by rank, then unranked by median descending
         unranked = [r for r in results if r.rank is None]
         unranked.sort(key=lambda x: (-(x.median or 0), x.category))
 
@@ -377,6 +773,14 @@ class JobRepository:
         education: str | None = None,
     ) -> list[RegionSalaryStat]:
         """Province salary stats with P25, median, P75 and sample size threshold (<5)."""
+        db: AsyncIOMotorDatabase | None = get_database()
+        if db is not None:
+            match_filter = self._build_mongo_filter(
+                category=category, province=province, education=education
+            )
+            return await self._mongo_get_salary_by_region(db, match_filter)
+
+        logger.info("MongoDB offline or uninitialized: using in-memory get_salary_by_region.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -409,15 +813,12 @@ class JobRepository:
                 )
             )
 
-        # Rank eligible provinces (unknown/未注明 and low sample excluded from ranking)
         rankable = [
             r
             for r in results
-            if not r.is_low_sample
-            and r.province not in ("未注明", "其他")
-            and r.median is not None
+            if not r.is_low_sample and r.province not in ("未注明", "其他") and r.median is not None
         ]
-        rankable.sort(key=lambda x: (-x.median, x.province))
+        rankable.sort(key=lambda x: (-(x.median or 0.0), x.province))
         for idx, item in enumerate(rankable, start=1):
             item.rank = idx
 
@@ -434,17 +835,21 @@ class JobRepository:
         education: str | None = None,
     ) -> SkillsTopData:
         """Top skills with dual denominators: annotated ratio and total ratio."""
+        db: AsyncIOMotorDatabase | None = get_database()
+        if db is not None:
+            match_filter = self._build_mongo_filter(
+                category=category, province=province, education=education
+            )
+            return await self._mongo_get_skills_top(db, match_filter, limit=limit)
+
+        logger.info("MongoDB offline or uninitialized: using in-memory get_skills_top.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
         total_jobs = len(filtered)
-        tagged_skills_jobs = sum(
-            1 for j in filtered if j.get("skills") and len(j["skills"]) > 0
-        )
+        tagged_skills_jobs = sum(1 for j in filtered if j.get("skills") and len(j["skills"]) > 0)
 
-        coverage_ratio = (
-            round(tagged_skills_jobs / total_jobs, 4) if total_jobs > 0 else None
-        )
+        coverage_ratio = round(tagged_skills_jobs / total_jobs, 4) if total_jobs > 0 else None
 
         skill_counts: dict[str, int] = {}
         for j in filtered:
@@ -456,18 +861,14 @@ class JobRepository:
                     seen_in_job.add(name)
                     skill_counts[name] = skill_counts.get(name, 0) + 1
 
-        sorted_skills = sorted(skill_counts.items(), key=lambda x: (-x[1], x[0]))[
-            :limit
-        ]
+        sorted_skills = sorted(skill_counts.items(), key=lambda x: (-x[1], x[0]))[:limit]
 
         skill_items = [
             SkillStatItem(
                 skill_name=name,
                 count=count,
                 ratio_annotated=(
-                    round(count / tagged_skills_jobs, 4)
-                    if tagged_skills_jobs > 0
-                    else None
+                    round(count / tagged_skills_jobs, 4) if tagged_skills_jobs > 0 else None
                 ),
                 ratio_total=(round(count / total_jobs, 4) if total_jobs > 0 else None),
             )
@@ -496,6 +897,27 @@ class JobRepository:
         sort_order: str = "asc",
     ) -> JobListData:
         """Paginated search with multi-dimensional filtering."""
+        db: AsyncIOMotorDatabase | None = get_database()
+        if db is not None:
+            query = self._build_mongo_filter(
+                category=category,
+                province=province,
+                education=education,
+                keyword=keyword,
+                min_salary=min_salary,
+                max_salary=max_salary,
+                has_skills=has_skills,
+            )
+            return await self._mongo_get_jobs(
+                db,
+                query=query,
+                page=page,
+                page_size=page_size,
+                sort_by=sort_by,
+                sort_order=sort_order,
+            )
+
+        logger.info("MongoDB offline or uninitialized: using in-memory get_jobs.")
         filtered = self._get_filtered_dataset(
             category=category,
             province=province,
@@ -508,7 +930,6 @@ class JobRepository:
         total = len(filtered)
         total_pages = math.ceil(total / page_size) if total > 0 else 0
 
-        # Sort
         reverse = sort_order.lower() == "desc"
 
         def sort_key(item: dict[str, Any]):
@@ -524,7 +945,7 @@ class JobRepository:
         page_items = sorted_jobs[start:end]
 
         return JobListData(
-            items=page_items,
+            items=cast(list[JobItem], page_items),
             total=total,
             page=page,
             page_size=page_size,
@@ -533,19 +954,14 @@ class JobRepository:
 
     async def get_job_by_id(self, job_id: str) -> dict[str, Any] | None:
         """Find a job by representative id or member source id."""
-        # Check in-memory index
-        if job_id in self._id_index:
-            return self._id_index[job_id]
-
-        # If MongoDB is connected
         db: AsyncIOMotorDatabase | None = get_database()
         if db is not None:
-            doc = await db.jobs.find_one(
-                {"$or": [{"id": job_id}, {"source_ids": job_id}]},
-                {"_id": 0},
-            )
-            if doc:
+            doc = await self._mongo_get_job_by_id(db, job_id)
+            if doc is not None:
                 return doc
+
+        if job_id in self._id_index:
+            return self._id_index[job_id]
 
         return None
 

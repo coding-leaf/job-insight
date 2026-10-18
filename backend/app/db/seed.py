@@ -13,10 +13,9 @@ from typing import Any
 
 import pymongo
 from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 DEFAULT_DB_NAME = "job_insight"
@@ -49,14 +48,8 @@ def resolve_data_file(custom_path: str | None = None) -> Path:
             return p
 
     candidates = [
-        Path(__file__).resolve().parents[3]
-        / "data"
-        / "processed"
-        / "jobs_cleaned_grouped.json",
-        Path(__file__).resolve().parents[2]
-        / "data"
-        / "processed"
-        / "jobs_cleaned_grouped.json",
+        Path(__file__).resolve().parents[3] / "data" / "processed" / "jobs_cleaned_grouped.json",
+        Path(__file__).resolve().parents[2] / "data" / "processed" / "jobs_cleaned_grouped.json",
         Path("data/processed/jobs_cleaned_grouped.json").resolve(),
     ]
     for c in candidates:
@@ -108,9 +101,7 @@ def seed_mongodb(
         coll = db[coll_name]
 
         # Reset collection
-        logger.info(
-            "Clearing existing collection '%s' in database '%s'...", coll_name, db_name
-        )
+        logger.info("Clearing existing collection '%s' in database '%s'...", coll_name, db_name)
         coll.delete_many({})
 
         # Insert records
@@ -120,9 +111,7 @@ def seed_mongodb(
         logger.info("Successfully inserted %d documents.", inserted_count)
 
         if inserted_count != EXPECTED_DOC_COUNT:
-            raise RuntimeError(
-                f"Inserted count {inserted_count} != expected {EXPECTED_DOC_COUNT}"
-            )
+            raise RuntimeError(f"Inserted count {inserted_count} != expected {EXPECTED_DOC_COUNT}")
 
         # Create indexes
         logger.info("Creating required indexes...")
@@ -143,7 +132,7 @@ def seed_mongodb(
         logger.info("Seeding completed successfully.")
         return True
 
-    except (pymongo.errors.PyMongoError, OSError) as exc:
+    except (PyMongoError, OSError) as exc:
         logger.error("Failed to seed MongoDB: %s", exc)
         return False
 

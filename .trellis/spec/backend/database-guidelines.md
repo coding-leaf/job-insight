@@ -27,10 +27,25 @@ The `jobs` collection maintains 4 compound and single-field indexes built by `ap
 
 ---
 
-## Aggregation & Statistical Rules
+## Native MongoDB Aggregation Pipelines
 
-1. **Sample Threshold ($N < 5$)**: Categories with fewer than 5 eligible records (e.g., "项目与产品" with $N=4$) must have `is_low_sample: True` and be excluded from primary ranking charts.
-2. **Dual-Denominator Skill Coverage**:
-   - `ratio_annotated`: $count / 833$ (proportion among jobs with explicit skill annotations).
-   - `ratio_total`: $count / 2251$ (proportion among all grouped jobs).
-3. **Quartile Calculations**: P25, P50 (Median), and P75 must be calculated from sorted salary midpoints on valid records (`salary_eligible_for_midpoint == True`).
+All analytical and statistical operations in `backend/app/db/repository.py` execute as native MongoDB aggregation pipelines when a database connection is active:
+
+1. **Overview Metrics (`_mongo_get_overview`)**:
+   Uses `$facet` to compute `total`, `eligible_salaries`, `tagged_skills_count`, `duplicate_groups_count`, and `categories` in a single round-trip.
+2. **Category Salary Rankings (`_mongo_get_salary_by_category`)**:
+   Uses `$match` -> `$sort: {"salary_midpoint": 1}` -> `$group: {"_id": "$job_category", "salaries": {"$push": "$salary_midpoint"}}` to pull sorted salary arrays for exact P25/Median/P75 calculation.
+3. **Regional Salary Gradient (`_mongo_get_salary_by_region`)**:
+   Uses `$match` -> `$sort` -> `$group: {"_id": "$province", "salaries": {"$push": "$salary_midpoint"}}`.
+4. **Skills Penetration Top 20 (`_mongo_get_skills_top`)**:
+   Uses `$match` -> `$unwind: "$skills"` -> `$group: {"_id": "$skills.skill_name", "count": {"$sum": 1}}` -> `$sort: {"count": -1}` -> `$limit: limit`.
+5. **Job Explorer Search & Pagination (`_mongo_get_jobs`)**:
+   Uses native Motor `db.jobs.find(query).sort().skip().limit()` alongside `db.jobs.count_documents(query)`.
+
+---
+
+## Dual Dispatch & Offline Fallback
+
+`JobRepository` checks `get_database()`:
+- **Online (Primary)**: 100% executes native Motor aggregation pipelines hitting the 4 compound indexes.
+- **Offline (Fallback)**: When Docker/MongoDB is unstarted, falls back smoothly to an in-memory dataset, ensuring development and local CI tests never deadlock.
