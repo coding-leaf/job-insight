@@ -14,8 +14,10 @@ import statistics
 from pathlib import Path
 from typing import Any, cast
 
+from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.core.config import settings
 from app.db.mongodb import get_database
 from app.schemas.job import (
     CategoryProportion,
@@ -158,12 +160,28 @@ def _build_mongo_filter(
 
 class JobRepository:
     def __init__(self) -> None:
-        self._dataset: list[dict[str, Any]] = []
-        self._id_index: dict[str, dict[str, Any]] = {}
+        self._dataset: list[dict[str, Any]] | None = None
+        self._id_index: dict[str, dict[str, Any]] | None = None
+        # MongoDB is the primary datastore. In-memory JSON dataset is NOT preloaded at startup.
+
+    def _ensure_fallback_data(self) -> None:
+        """Lazy-load jobs_cleaned_grouped.json only when fallback is explicitly enabled."""
+        if self._dataset is not None:
+            return
+        if not settings.ENABLE_JSON_FALLBACK:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Primary datastore MongoDB is unavailable. Please ensure MongoDB is running and seeded.",
+            )
         self._load_dataset()
+        if not self._dataset:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Primary datastore MongoDB is unavailable and fallback dataset could not be loaded.",
+            )
 
     def _load_dataset(self) -> None:
-        """Load jobs_cleaned_grouped.json for fallback and offline tests."""
+        """Load jobs_cleaned_grouped.json strictly for offline test/fallback mode."""
         candidates = [
             Path(__file__).resolve().parents[3]
             / "data"
@@ -187,15 +205,19 @@ class JobRepository:
                     data = json.load(f)
                 if isinstance(data, list):
                     self._dataset = data
+                    self._id_index = {}
                     for item in data:
                         self._id_index[item["id"]] = item
                         for sid in item.get("source_ids", []):
                             self._id_index[sid] = item
-                    logger.info("Loaded in-memory dataset with %d records.", len(self._dataset))
+                    logger.warning(
+                        "[FALLBACK DEGRADED] Loaded in-memory JSON backup with %d records.",
+                        len(self._dataset),
+                    )
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning("Could not load in-memory dataset: %s", e)
+                logger.error("Could not load in-memory fallback dataset: %s", e)
         else:
-            logger.warning("jobs_cleaned_grouped.json could not be found.")
+            logger.error("Fallback dataset jobs_cleaned_grouped.json could not be found.")
 
     def _matches_filter(
         self,
@@ -272,6 +294,8 @@ class JobRepository:
         max_salary: int | None = None,
         has_skills: bool | None = None,
     ) -> list[dict[str, Any]]:
+        self._ensure_fallback_data()
+        assert self._dataset is not None
         return [
             j
             for j in self._dataset
@@ -304,8 +328,7 @@ class JobRepository:
                     "total": [{"$count": "count"}],
                     "eligible_salaries": [
                         {"$match": {"salary_eligible_for_midpoint": True}},
-                        {"$sort": {"salary_midpoint": 1}},
-                        {"$project": {"salary_midpoint": 1}},
+                        {"$group": {"_id": None, "salaries": {"$push": "$salary_midpoint"}}},
                     ],
                     "tagged_skills_count": [
                         {"$match": {"skills.0": {"$exists": True}}},
@@ -330,11 +353,8 @@ class JobRepository:
         data = res[0] if res else {}
 
         total_jobs = data["total"][0]["count"] if data.get("total") else 0
-        eligible_salaries = [
-            doc["salary_midpoint"]
-            for doc in data.get("eligible_salaries", [])
-            if doc.get("salary_midpoint") is not None
-        ]
+        salary_docs = data.get("eligible_salaries", [])
+        eligible_salaries = salary_docs[0].get("salaries", []) if salary_docs else []
         eligible_count = len(eligible_salaries)
         tagged_skills_jobs = (
             data["tagged_skills_count"][0]["count"] if data.get("tagged_skills_count") else 0
@@ -634,6 +654,8 @@ class JobRepository:
         if db is not None:
             dataset_provinces = set(await db.jobs.distinct("province", {"province": {"$ne": None}}))
         else:
+            self._ensure_fallback_data()
+            assert self._dataset is not None
             dataset_provinces = {j["province"] for j in self._dataset if j.get("province")}
 
         ordered_provinces = [p for p in ALL_PROVINCES if p in dataset_provinces]
@@ -661,7 +683,7 @@ class JobRepository:
             )
             return await self._mongo_get_overview(db, match_filter)
 
-        logger.info("MongoDB offline or uninitialized: using in-memory get_overview.")
+        logger.warning("MongoDB unavailable: running degraded in-memory get_overview.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -719,7 +741,7 @@ class JobRepository:
             )
             return await self._mongo_get_salary_by_category(db, match_filter)
 
-        logger.info("MongoDB offline or uninitialized: using in-memory get_salary_by_category.")
+        logger.warning("MongoDB unavailable: running degraded in-memory get_salary_by_category.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -780,7 +802,7 @@ class JobRepository:
             )
             return await self._mongo_get_salary_by_region(db, match_filter)
 
-        logger.info("MongoDB offline or uninitialized: using in-memory get_salary_by_region.")
+        logger.warning("MongoDB unavailable: running degraded in-memory get_salary_by_region.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -842,7 +864,7 @@ class JobRepository:
             )
             return await self._mongo_get_skills_top(db, match_filter, limit=limit)
 
-        logger.info("MongoDB offline or uninitialized: using in-memory get_skills_top.")
+        logger.warning("MongoDB unavailable: running degraded in-memory get_skills_top.")
         filtered = self._get_filtered_dataset(
             category=category, province=province, education=education
         )
@@ -917,7 +939,7 @@ class JobRepository:
                 sort_order=sort_order,
             )
 
-        logger.info("MongoDB offline or uninitialized: using in-memory get_jobs.")
+        logger.warning("MongoDB unavailable: running degraded in-memory get_jobs.")
         filtered = self._get_filtered_dataset(
             category=category,
             province=province,
@@ -956,14 +978,11 @@ class JobRepository:
         """Find a job by representative id or member source id."""
         db: AsyncIOMotorDatabase | None = get_database()
         if db is not None:
-            doc = await self._mongo_get_job_by_id(db, job_id)
-            if doc is not None:
-                return doc
+            return await self._mongo_get_job_by_id(db, job_id)
 
-        if job_id in self._id_index:
-            return self._id_index[job_id]
-
-        return None
+        self._ensure_fallback_data()
+        assert self._id_index is not None
+        return self._id_index.get(job_id)
 
 
 repository = JobRepository()

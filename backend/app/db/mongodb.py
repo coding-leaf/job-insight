@@ -22,11 +22,11 @@ class MongoDBManager:
             # Ping database to verify connection
             await self.client.admin.command("ping")
             self.db = self.client[settings.DATABASE_NAME]
-            logger.info("Connected to MongoDB at %s", settings.MONGODB_URL)
+            logger.info("Successfully connected to primary datastore MongoDB at %s", settings.MONGODB_URL)
             return True
         except (PyMongoError, OSError) as exc:
             logger.warning(
-                "MongoDB connection at %s failed: %s. Repository fallback enabled.",
+                "Primary datastore MongoDB connection at %s failed: %s.",
                 settings.MONGODB_URL,
                 exc,
             )

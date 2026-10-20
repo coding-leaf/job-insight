@@ -256,10 +256,10 @@ onMounted(() => {
           <div class="card-header">
             <div class="header-left">
               <span class="title">样本薪资中位数</span>
-              <el-tag size="small" type="success" effect="plain">严谨统计口径</el-tag>
+              <el-tag size="small" type="success" effect="plain">大盘基准</el-tag>
             </div>
             <el-tooltip
-              content="基于区间中点 (下限+上限)/2 核算的中位数。偶数个样本取中间两值均值。严禁将未披露薪资计为0。"
+              content="基于有效招聘月薪区间核算的中位数。"
               placement="top"
             >
               <el-icon class="help-icon"><InfoFilled /></el-icon>
@@ -281,8 +281,7 @@ onMounted(() => {
           </div>
 
           <p class="benchmark-desc">
-            当前样本中有效招聘薪资区间中点（下限与上限的平均）的中位数。
-            中位数用于描述这一组样本，不是某一岗位的薪资，也不代表实际录用薪资。
+            反映当前筛选条件下公开月薪区间中点的中位数水平。
           </p>
 
           <div class="benchmark-details">

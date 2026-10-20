@@ -1,10 +1,13 @@
 """FastAPI main application entrypoint."""
 
+# ruff: noqa: E402
+
 import logging
 import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 # Ensure 'backend' directory is in sys.path so 'from app...' works regardless of cwd
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -29,7 +32,22 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan managing database lifecycle."""
     logger.info("Initializing %s ...", settings.PROJECT_NAME)
-    await db_manager.connect()
+    connected = await db_manager.connect()
+    if connected:
+        db = db_manager.get_db()
+        if db is not None:
+            count = await db.jobs.count_documents({})
+            logger.info("Primary MongoDB connected. Collection 'jobs' contains %d documents.", count)
+            if count == 0:
+                logger.warning(
+                    "MongoDB collection 'jobs' is empty! Seed with: python backend/app/db/seed.py"
+                )
+    else:
+        logger.warning(
+            "Primary datastore MongoDB could not be connected at %s. "
+            "Please start MongoDB container (docker compose up -d) and seed data.",
+            settings.MONGODB_URL,
+        )
     yield
     logger.info("Shutting down %s ...", settings.PROJECT_NAME)
     await db_manager.close()
@@ -95,8 +113,34 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
 
 # Health check
 @app.get("/health", tags=["Health"])
-async def health_check() -> dict[str, str]:
-    return {"status": "ok", "app": settings.PROJECT_NAME}
+async def health_check() -> dict[str, Any]:
+    db = db_manager.get_db()
+    mongo_status = "disconnected"
+    doc_count = 0
+    indexes: list[str] = []
+    if db is not None:
+        try:
+            await db.command("ping")
+            mongo_status = "connected"
+            doc_count = await db.jobs.count_documents({})
+            idx_info = await db.jobs.index_information()
+            indexes = list(idx_info.keys())
+        except Exception as e:
+            mongo_status = f"error: {e}"
+
+    is_healthy = mongo_status == "connected" and doc_count > 0
+    return {
+        "status": "ok" if is_healthy else "degraded",
+        "app": settings.PROJECT_NAME,
+        "database": {
+            "engine": "MongoDB",
+            "status": mongo_status,
+            "collection": "jobs",
+            "document_count": doc_count,
+            "indexes": indexes,
+            "primary_datastore": True,
+        },
+    }
 
 
 # Mount API V1 Router

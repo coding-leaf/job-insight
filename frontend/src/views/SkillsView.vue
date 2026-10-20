@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { Cpu, Document, Search } from '@element-plus/icons-vue'
+import { Cpu, Search } from '@element-plus/icons-vue'
 import { useFilterStore } from '@/stores/filter'
 import { getSkillsTop } from '@/api/stats'
 import { useECharts } from '@/composables/useECharts'
@@ -75,8 +75,8 @@ function renderBarChart(data: SkillsTopData) {
 
   const option = {
     title: {
-      text: 'Top 20 核心技能渗透率 (严格双分母口径对比)',
-      subtext: `打标基准分母 L = ${data.tagged_skills_jobs} 组 | 全量样本分母 N = ${data.total_jobs} 组`,
+      text: 'Top 20 核心技能需求分布',
+      subtext: `标注岗位样本: ${data.tagged_skills_jobs} 组 | 全部匹配样本: ${data.total_jobs} 组`,
       left: 10,
       top: 10,
       textStyle: { fontSize: 15, fontWeight: 600, color: '#1f2d3d' },
@@ -250,33 +250,18 @@ onMounted(() => {
 
 <template>
   <div class="skills-view">
-    <!-- Methodology Banner -->
-    <el-card shadow="never" class="methodology-card">
-      <div class="methodology-banner">
-        <el-icon class="method-icon"><Document /></el-icon>
-        <div class="method-text">
-          <div class="method-title">技能口径与统计分母说明 (严格遵循《JobInsight 统计口径》)</div>
-          <div class="method-desc">
-            1. <strong>严格双分母呈现</strong>：<strong>打标基准比 K(s)/L</strong>（以含技能标签岗位组为分母）与 <strong>全量基准比 K(s)/N</strong>（以当前全部筛选岗位组为分母）必须并列呈现，严禁混淆分母。<br />
-            2. 同一组内的多份证据、重复技能均只计一次频次，技能标签展开不虚增岗位数。<br />
-            3. 当前快照下无标签不代表岗位不需要技能，当前技能字典也不等于行业全貌，本系统不提供所谓最佳技能路线。
-          </div>
-        </div>
-      </div>
-    </el-card>
-
     <!-- Top Metric Overview Banner -->
     <div class="skills-kpi-bar">
       <div class="kpi-item">
-        <span class="label">当前匹配岗位总量 (N)</span>
+        <span class="label">当前匹配岗位总量</span>
         <span class="val">{{ skillsData?.total_jobs?.toLocaleString() ?? 0 }} 组</span>
       </div>
       <div class="kpi-item">
-        <span class="label">含技能标签岗位组 (L)</span>
+        <span class="label">含技能标签岗位数</span>
         <span class="val text-purple">{{ skillsData?.tagged_skills_jobs?.toLocaleString() ?? 0 }} 组</span>
       </div>
       <div class="kpi-item">
-        <span class="label">样本技能标注覆盖率 (L/N)</span>
+        <span class="label">技能标注覆盖率</span>
         <span class="val text-blue">
           {{
             skillsData?.coverage_ratio !== null && skillsData?.coverage_ratio !== undefined
@@ -398,37 +383,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.methodology-card {
-  border-radius: 8px;
-  background: #fdf6ec;
-  border: 1px solid #faecd8;
-}
-
-.methodology-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.method-icon {
-  font-size: 22px;
-  color: #e6a23c;
-  margin-top: 2px;
-}
-
-.method-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1f2d3d;
-  margin-bottom: 6px;
-}
-
-.method-desc {
-  font-size: 12px;
-  color: #595959;
-  line-height: 1.6;
 }
 
 .skills-kpi-bar {

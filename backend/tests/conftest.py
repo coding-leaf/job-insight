@@ -12,12 +12,15 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from app.db.mongodb import db_manager  # noqa: E402
 from app.main import app  # noqa: E402
 
 
 @pytest.fixture
 async def async_client() -> AsyncGenerator[AsyncClient, None]:
-    """Provide an asynchronous HTTP client bound to the FastAPI application."""
+    """Provide an asynchronous HTTP client bound to the FastAPI application with active DB."""
+    await db_manager.connect()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+    await db_manager.close()

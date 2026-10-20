@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     MONGODB_URL: str = "mongodb://localhost:27017"
     DATABASE_NAME: str = "job_insight"
+    # When False, the backend strictly requires MongoDB as the primary datastore
+    # and will not silently fall back to local JSON memory storage.
+    ENABLE_JSON_FALLBACK: bool = False
 
     # CORS settings
     CORS_ORIGINS: list[str] = ["*"]

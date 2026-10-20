@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { Warning, TrendCharts, Location, Document } from '@element-plus/icons-vue'
+import { Warning, TrendCharts, Location } from '@element-plus/icons-vue'
 import { useFilterStore } from '@/stores/filter'
 import { getSalaryByCategory, getSalaryByRegion } from '@/api/stats'
 import { useECharts } from '@/composables/useECharts'
@@ -259,21 +259,6 @@ onMounted(() => {
 
 <template>
   <div class="salary-view">
-    <!-- Methodology Banner -->
-    <el-card shadow="never" class="methodology-card">
-      <div class="methodology-banner">
-        <el-icon class="method-icon"><Document /></el-icon>
-        <div class="method-text">
-          <div class="method-title">统计口径与分析边界声明 (严格遵循《JobInsight 统计口径》)</div>
-          <div class="method-desc">
-            1. 中位数基于岗位有效闭区间中点 <code>(下限 + 上限) / 2</code> 核算，不代表实际到手或录用薪资。<br />
-            2. 样本量不足 5 组的分项明确标记低样本预警（⚠️），不参与正式位次排序，但保留样本量与分布展示。<br />
-            3. 缺失或倒置的薪资不计算中点，严禁前端伪造零值或自创插值。
-          </div>
-        </div>
-      </div>
-    </el-card>
-
     <!-- Two Main Charts Row -->
     <div class="charts-row">
       <!-- Category Ranking Chart -->
@@ -435,45 +420,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 20px;
-}
-
-.methodology-card {
-  border-radius: 8px;
-  background: #f0f7ff;
-  border: 1px solid #d0e5ff;
-}
-
-.methodology-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.method-icon {
-  font-size: 22px;
-  color: #1890ff;
-  margin-top: 2px;
-}
-
-.method-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1f2d3d;
-  margin-bottom: 6px;
-}
-
-.method-desc {
-  font-size: 12px;
-  color: #595959;
-  line-height: 1.6;
-}
-
-.method-desc code {
-  background: #e6f1ff;
-  color: #1890ff;
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-family: monospace;
 }
 
 .charts-row {
