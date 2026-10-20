@@ -56,3 +56,6 @@ Thumbs.db
 # Data files & Raw datasets
 data/processed/*.json
 data/processed/*.csv
+
+# Data loader & seeding scripts
+backend/app/db/seed.py
