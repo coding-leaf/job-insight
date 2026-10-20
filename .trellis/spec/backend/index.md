@@ -6,12 +6,12 @@
 
 ## Overview
 
-This directory contains guidelines for backend development. The approved data contract below is documentation for future implementation; the remaining application guidelines are scaffolding and still need project-specific conventions.
+The FastAPI backend currently implements job search, detail reads and sample analytics through MongoDB and a local JSON fallback. The data contract below remains authoritative. Directory and database guides contain project-specific content; error, quality and logging guides remain scaffolding. See the [current project review](../../../docs/review/2026-10-20_203614_project-review.md) for implementation evidence and known differences from the contract, including Python percentile calculation and database verification limits.
 
 ## Pre-Development Checklist
 
 - For import, classification, filtering or analytical work, read [Data Contract](./data-contract.md) and its linked field, review and statistical definitions first.
-- No application modules, endpoints or database collections have been implemented by the data-contract task.
+- The original data-contract task was documentation-only. Current application code exists under `backend/app/`; a completed historical task is not proof that a database, query plan or deployment was verified in the current environment.
 
 ## Quality Check
 
@@ -24,9 +24,9 @@ This directory contains guidelines for backend development. The approved data co
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Data Contract](./data-contract.md) | Approved input/projection boundaries, offline classification and statistical rules | Approved contract; implementation pending |
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
+| [Data Contract](./data-contract.md) | Approved input/projection boundaries, offline classification and statistical rules | Active contract; implementation differences documented in the current review |
+| [Directory Structure](./directory-structure.md) | Module organization and file layout | Project guide present |
+| [Database Guidelines](./database-guidelines.md) | MongoDB queries, indexes and fallback | Project guide present; runtime plans and imported data require separate verification |
 | [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |

@@ -1,6 +1,6 @@
 # JobInsight Data Contract
 
-Status: implemented and verified (2026-10-18). Pipeline implemented in `temp/data_prep/`, verified against 8 acceptance criteria via `verify_contracts.py`. Artifacts generated under `data/processed/`.
+Status: active contract; implementation state reviewed on 2026-10-20. The preparation pipeline exists in `temp/data_prep/`, with local artifacts under `data/processed/` and application read paths under `backend/app/`. The earlier 2026-10-18 preparation verification is historical; the current [project review](../../../docs/review/2026-10-20_203614_project-review.md) distinguishes implemented behavior, unresolved contract differences and checks actually run.
 
 ## 1. Scope / Trigger
 
@@ -15,7 +15,7 @@ Do not treat the historical handoff or raw cache column names as proof that indu
 
 ## 2. Signatures / Data Boundaries
 
-No public API or database signature is introduced by this documentation task. The future processing boundary is:
+No public API or database signature is introduced by this contract document. The processing boundary is:
 
 ```text
 jobs_clean_final.csv + skills.csv + job_skills.csv
@@ -25,7 +25,7 @@ jobs_clean_final.csv + skills.csv + job_skills.csv
     -> list totals/pagination and salary/skill/education aggregates
 ```
 
-The field dictionary owns the input and projection shapes. The classification document owns the offline review columns, category vocabulary, status combinations and group resolution. These are contracts to implement later, not existing callable functions.
+The field dictionary owns the input and projection shapes. The classification document owns the offline review columns, category vocabulary, status combinations and group resolution. Preparation, repository and API implementations now exist; these normative definitions do not imply that every implementation path has been verified against them.
 
 ## 3. Contracts
 
@@ -51,7 +51,7 @@ The field dictionary owns the input and projection shapes. The classification do
 | Fewer than five eligible groups | Exclude that bucket from salary ranking, retain sample count/distribution context |
 | No matching groups | No salary estimate; no fabricated percentage; use the methodology's empty-result contract |
 
-All validation above defines future behavior. This task runs read-only source audits and document checks only.
+The validation above remains normative. The original 2026-10-17 contract task was documentation-only; later application code and artifacts exist. The 2026-10-20 review used read-only source/data audits and document checks, and did not rerun importer, application or database tests.
 
 ## 5. Good / Base / Bad Cases
 
@@ -65,9 +65,9 @@ All validation above defines future behavior. This task runs read-only source au
 
 ## 6. Tests Required
 
-Future importer/query tests must assert source-field retention, null handling, referential integrity, numeric parsing and source-ID stability. Group tests must cover skill union, conflicting reviews, grouping before normalization and stable representative IDs. Aggregate tests must cover identical list/chart scopes, skill-link expansion, missing/reversed salary bounds, sample sizes four/five, empty filters and zero skill coverage. Category tests must cover explicit titles, generic campus titles, multi-role titles, digital-chip design versus web frontend, pending disagreement and confirmed adjudication.
+Importer/query tests must assert source-field retention, null handling, referential integrity, numeric parsing and source-ID stability. Group tests must cover skill union, conflicting reviews, grouping before normalization and stable representative IDs. Aggregate tests must cover identical list/chart scopes, skill-link expansion, missing/reversed salary bounds, sample sizes four/five, empty filters and zero skill coverage. Category tests must cover explicit titles, generic campus titles, multi-role titles, digital-chip design versus web frontend, pending disagreement and confirmed adjudication.
 
-Pipeline implementation checks: `python temp/data_prep/verify_contracts.py` asserts all AC-1 through AC-8 criteria (SHA-256 match, 2251 groups, null/float conversion, salary exclusions, review status transitions, and group-level category conflict propagation). Ruff and pyright pass with 0 errors.
+The historical 2026-10-18 preparation verification recorded `verify_contracts.py` checks against AC-1 through AC-8 (SHA-256 match, 2251 groups, null/float conversion, salary exclusions, review status transitions, and group-level category conflict propagation), plus Ruff and pyright with 0 errors. These are historical results, not checks rerun in the current documentation review; do not run legacy preparation scripts merely to refresh this wording.
 
 ## 7. Wrong vs Correct
 

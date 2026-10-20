@@ -6,7 +6,7 @@
 
 ## Overview
 
-This directory contains guidelines for frontend development. Application conventions remain scaffolding. Data-driven UI work must follow the approved data references below; these documents do not imply that pages or APIs already exist.
+The Vue application currently has seven business routes, with browser-local candidate/skill state and API-driven exploration and analytics. Directory and state-management guides contain project-specific content; the other guideline files below remain scaffolding. Data-driven UI changes must follow the approved references. See the [current project review](../../../docs/review/2026-10-20_203614_project-review.md) for actual behavior and verification limits.
 
 ## Pre-Development Checklist
 
@@ -25,10 +25,10 @@ This directory contains guidelines for frontend development. Application convent
 
 | Guide | Description | Status |
 |-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
+| [Directory Structure](./directory-structure.md) | Module organization and file layout | Project guide present |
 | [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
 | [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
+| [State Management](./state-management.md) | Local state, global state, server state | Project guide present; verify details against source and the current review |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
 

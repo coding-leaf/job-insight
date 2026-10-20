@@ -28,6 +28,16 @@ These guides help you **ask the right questions before coding**.
 
 ## Quick Reference: Thinking Triggers
 
+### When Reviewing Project Documentation
+
+- Put new review reports in `docs/review/YYYY-MM-DD_HHmmss_<topic>.md`, using Asia/Shanghai time.
+- Preserve superseded originals in `docs/archive/` with the same timestamp format, verify their SHA-256 values, and record original/current/archive path mappings in the review inventory.
+- Keep active data-contract entrypoints at their stable `docs/*.md` paths. An old status paragraph can require a refreshed version while the document's normative rules remain valid.
+- Judge currency against code and data evidence rather than file age. Distinguish implemented behavior, unresolved contract differences and tests that were actually run.
+- Archived originals retain their bytes and historical relative links; the review inventory must explain their original path base and provide usable destination links.
+
+See the [documentation audit](../../../docs/review/2026-10-20_203614_documentation-audit.md) for the current disposition and archive mappings.
+
 ### When to Think About Cross-Layer Issues
 
 - [ ] Feature touches 3+ layers (API, Service, Component, Database)

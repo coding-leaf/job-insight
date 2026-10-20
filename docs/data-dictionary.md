@@ -1,10 +1,10 @@
 # JobInsight 字段字典
 
-本契约于 2026-10-17 确定，描述现有 CSV 到后续业务数据的映射；尚未建立数据库、接口或导入实现。类型是业务含义，不预设 MongoDB 集合结构。原始交接文件只读，来源快照和 SHA-256 见[数据准备清单](data-preparation-checklist.md)。
+契约确定于 2026-10-17，状态复核于 2026-10-20。当前已有离线分组/分类处理、MongoDB 与 JSON 查询仓库、FastAPI 接口和 Vue 页面；本文继续定义来源字段及业务含义，实际 API 投影差异见第 5 节。原始交接文件只读，来源快照、SHA-256 和本地输入可用性见[来源与处理状态](data-preparation-checklist.md)。本轮替换前的[原文快照](archive/2026-10-20_203614_data-dictionary.md)和[审查清单](review/2026-10-20_203614_documentation-audit.md)保留历史依据。
 
 ## 1. 来源与缺失规则
 
-输入为 UTF-8 BOM CSV：[岗位主表](../../清洗后数据/jobs_clean_final.csv)、[技能字典](../../清洗后数据/skills.csv)、[岗位技能关系](../../清洗后数据/job_skills.csv)。按 CSV 解码得到的原始单元格字符串先用于[精确分组](statistical-methodology.md)，然后才转换类型、规范地区。
+输入为 UTF-8 BOM CSV：岗位主表 `jobs_clean_final.csv`、技能字典 `skills.csv`、岗位技能关系 `job_skills.csv`。它们来自本仓库父目录的历史 `清洗后数据/` 交接包，并非 Git 自带输入；来源位置与哈希见[来源清单](data-preparation-checklist.md)。按 CSV 解码得到的原始单元格字符串先用于[精确分组](statistical-methodology.md)，然后才转换类型、规范地区。
 
 - 空单元格 `""` 映射为 `null`，不得替换成 0、“不限”或“无要求”；`skills` 无关系映射为 `[]`。
 - 原始标题、地点、薪资文字和正文保持来源内容。展示“未注明”“未分类”只是缺失值的显示名称，不写回来源文本。
@@ -80,4 +80,19 @@
 | `category_source` | `rule`、`reviewed` 或 `null`；表示组级最终类别依据。已确认无法分类时为 `reviewed` 且类别为 `null`；无依据或待解冲突时两者均为 `null`。 |
 | `skills` | 上节技能数组；由全组关系并集构造，无技能关系为 `[]`。 |
 
-复核 CSV 是离线处理记录，字段及状态以[岗位分类说明](job-classification.md)为准，不自动成为产品页面字段。区间中点是统计计算值，定义见[统计口径](statistical-methodology.md)，不要求新增持久化字段。
+复核 CSV 是离线处理记录，字段及状态以[岗位分类说明](job-classification.md)为准，不自动成为产品页面字段。区间中点的业务定义见[统计口径](statistical-methodology.md)；当前实现选择将中点及资格标记保存于组级投影，见下一节。
+
+## 5. 当前投影与 API 类型边界（2026-10-20）
+
+[clean_and_group.py](../temp/data_prep/clean_and_group.py) 第 251—290 行在上述来源及组级字段外生成四项薪资派生字段；当前本地 JSON 共 29 个顶层字段。它们是现有实现，不替代来源上下限与原文。
+
+| 实际派生字段 | 类型与当前含义 |
+| --- | --- |
+| `salary_eligible_for_midpoint` | 布尔值，是否参与区间中点统计；业务资格仍应满足统计契约的有限正数、有效闭区间及原文倒置排除条件。 |
+| `salary_midpoint` | 数值或 `null`，符合资格时为区间中点，非实际收入。 |
+| `salary_stat_excluded` | 布尔值，当前实现标识已知原文倒置或数值异常；缺上/下限时可以为 false，因此不能把 false 等同于有资格。资格以 `salary_eligible_for_midpoint` 为准。 |
+| `salary_exclude_reason` | 字符串或 `null`，保留原文倒置、缺少边界等排除说明。 |
+
+[backend/app/schemas/job.py](../backend/app/schemas/job.py) 的 API `JobItem` 复用这些字段，但与来源业务契约仍有差异：来源允许 `company=null`、十进制薪资、`origin/evidence=null`，API 当前分别要求公司为字符串、薪资边界为整数、依据字段为字符串。不能将“字段同名”表述为所有输入类型均已 1:1 对齐；本次未变更这些类型，也未证明当前样本已因此失败。
+
+规范还要求薪资为有限正数；当前清洗资格分支未显式检查 `isfinite`。这是输入验证的待核对项，不应通过删掉有限性要求掩盖，也不能据此断言现有基准含异常值。当前数据规模与覆盖见[只读审计证据](review/2026-10-20_203614_data-stack-evidence.json)，不写入运行时常量。

@@ -1,0 +1,122 @@
+{
+  "audited_at": "2026-10-20T20:21:52+08:00",
+  "input_path": "data\\processed\\jobs_cleaned_grouped.json",
+  "input_bytes": 4189728,
+  "input_sha256": "0f317fb486052a56f1c1f00b6c00da071c12f9fec98dd7993273469eb13498b1",
+  "group_count": 2251,
+  "source_id_count": 3000,
+  "unique_source_id_count": 3000,
+  "duplicate_groups": 305,
+  "top_level_shape_count": 1,
+  "top_level_field_count": 29,
+  "source_hosts": {
+    "job.ncss.cn": 2251
+  },
+  "publication_range": [
+    "2025-10-21",
+    "2026-10-16"
+  ],
+  "eligible_salary_groups": 2194,
+  "midpoint_median": 12000.0,
+  "tagged_groups": 833,
+  "skill_names": 24,
+  "skill_entries": 2287,
+  "category_groups": {
+    "算法与人工智能": 453,
+    "运维与云平台": 108,
+    "null": 403,
+    "软件开发": 580,
+    "软件测试": 181,
+    "网络与信息安全": 138,
+    "技术支持与实施": 81,
+    "硬件与芯片": 129,
+    "其他明确岗位": 30,
+    "数据分析与大数据": 107,
+    "通信": 37,
+    "项目与产品": 4
+  },
+  "category_source_groups": {
+    "rule": 1848,
+    "null": 403
+  },
+  "review_rows": 3000,
+  "review_status_counts": {
+    "pending": 3000
+  },
+  "frontend_versions": {
+    "@element-plus/icons-vue": {
+      "declared": "^2.3.2",
+      "locked": "2.3.2"
+    },
+    "axios": {
+      "declared": "^1.20.0",
+      "locked": "1.20.0"
+    },
+    "echarts": {
+      "declared": "^6.1.0",
+      "locked": "6.1.0"
+    },
+    "element-plus": {
+      "declared": "^2.14.7",
+      "locked": "2.14.7"
+    },
+    "pinia": {
+      "declared": "^4.1.0",
+      "locked": "4.1.0"
+    },
+    "vue": {
+      "declared": "^3.5.42",
+      "locked": "3.5.44"
+    },
+    "vue-router": {
+      "declared": "^5.4.0",
+      "locked": "5.4.0"
+    },
+    "@types/node": {
+      "declared": "^24.13.3",
+      "locked": "24.19.2"
+    },
+    "@vitejs/plugin-vue": {
+      "declared": "^6.0.8",
+      "locked": "6.0.10"
+    },
+    "@vue/tsconfig": {
+      "declared": "^0.9.1",
+      "locked": "0.9.1"
+    },
+    "typescript": {
+      "declared": "~6.0.2",
+      "locked": "6.0.3"
+    },
+    "vite": {
+      "declared": "^8.3.0",
+      "locked": "8.3.4"
+    },
+    "vitest": {
+      "declared": "^5.0.5",
+      "locked": "5.0.5"
+    },
+    "vue-tsc": {
+      "declared": "^3.3.11",
+      "locked": "3.3.13"
+    }
+  },
+  "vite_node_engine": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "backend_locked_versions": {},
+  "backend_lock_status": "Header-only uv.lock; no package entries or resolved versions. requires-python is >=3.13, unlike README 3.11+ and Ruff py311 target.",
+  "backend_requirements_style": "Lower bounds (>=), not a fully pinned dependency lock",
+  "observed_python_runtime": "3.11.9",
+  "observed_node_runtime": "v22.22.3",
+  "backend_test_definitions": {
+    "backend\\tests\\test_api.py": 12,
+    "backend\\tests\\test_mongo_aggregation.py": 8
+  },
+  "document_sha256": {
+    "docs\\data-dictionary.md": "aca0378c47a99c13078e62e5ffa51e510c89306e2160812bd2588277ae31f41e",
+    "docs\\data-preparation-checklist.md": "6da869eca1230b90f392b3c2fc173fe94caf83cb8aceec8ccdda81fa147e64ac",
+    "docs\\job-classification.md": "c5c115242fea02027910c405b42aa8452bf3406b8061ec0fd865662aa03a35b1",
+    "docs\\statistical-methodology.md": "7b47c4894f7488dd7eb65e99804000a1a8efc65ba53f3d980ba4fa2a0d21fc7b"
+  }
+}
