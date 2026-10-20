@@ -56,3 +56,4 @@ Thumbs.db
 # Data files & Raw datasets
 data/processed/*.json
 data/processed/*.csv
+*.zip
