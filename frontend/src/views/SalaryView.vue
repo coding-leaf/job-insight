@@ -295,7 +295,7 @@ onMounted(() => {
             <el-icon><TrendCharts /></el-icon>
             <span>技术类别薪资四分位与样本量透视表</span>
           </div>
-          <el-tag size="small" type="info">共 {{ categoryStats.length }} 个技术方向</el-tag>
+          <el-tag size="small" type="info">共 {{ categoryStats.length }} 个岗位类别</el-tag>
         </div>
       </template>
 
@@ -309,7 +309,7 @@ onMounted(() => {
           </template>
         </el-table-column>
 
-        <el-table-column prop="category" label="技术类别" min-width="140">
+        <el-table-column prop="category" label="岗位类别" min-width="140">
           <template #default="{ row }">
             <span class="font-bold">{{ row.category }}</span>
             <el-tag v-if="row.is_low_sample" type="warning" size="small" class="ml-2">
@@ -368,7 +368,7 @@ onMounted(() => {
         <div class="table-header">
           <div class="table-title">
             <el-icon><Location /></el-icon>
-            <span>31 个省级行政区薪资核算透视表</span>
+            <span>省级行政区薪资核算透视表</span>
           </div>
           <el-tag size="small" type="info">共 {{ regionStats.length }} 个地区</el-tag>
         </div>

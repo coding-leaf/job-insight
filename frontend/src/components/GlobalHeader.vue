@@ -1,32 +1,54 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   DataAnalysis,
   TrendCharts,
   Cpu,
   Search,
-  InfoFilled
+  House,
+  Collection,
+  ArrowDown
 } from '@element-plus/icons-vue'
+import { useWorkspaceStore } from '@/stores/workspace'
+import { useFilterStore } from '@/stores/filter'
 
 const route = useRoute()
+const router = useRouter()
+const workspace = useWorkspaceStore()
+const filterStore = useFilterStore()
 
-const navItems = [
-  { path: '/overview', label: '综合总览', icon: DataAnalysis },
-  { path: '/salary', label: '薪资与地域', icon: TrendCharts },
-  { path: '/skills', label: '技能图谱', icon: Cpu },
-  { path: '/jobs', label: '岗位透视检索', icon: Search }
+const FILTER_PATHS = ['/jobs', '/overview', '/salary', '/skills']
+
+const primaryNav = [
+  { path: '/workbench', label: '工作台', icon: House },
+  { path: '/jobs', label: '岗位探索', icon: Search },
+  { path: '/shortlist', label: '候选清单', icon: Collection }
 ]
 
-const currentQuery = computed(() => {
-  return route.query
-})
+const analysisNav = [
+  { path: '/overview', label: '样本概况', icon: DataAnalysis },
+  { path: '/salary', label: '薪资与地域', icon: TrendCharts },
+  { path: '/skills', label: '技能标签', icon: Cpu }
+]
+
+// Carrying the analytical range between filtered pages is intentional; attaching it
+// to the workbench, shortlist or comparison would imply a hidden filter.
+const filterQuery = computed<Record<string, string>>(() =>
+  FILTER_PATHS.includes(route.path) ? filterStore.toQuery() : {}
+)
+
+const isAnalysisActive = computed(() => analysisNav.some((item) => item.path === route.path))
+
+function linkQuery(path: string) {
+  return FILTER_PATHS.includes(path) ? filterQuery.value : {}
+}
 </script>
 
 <template>
   <header class="global-header">
     <div class="header-container">
-      <div class="brand-area">
+      <router-link to="/workbench" class="brand-area">
         <div class="brand-icon-wrapper">
           <el-icon :size="22" class="brand-icon"><DataAnalysis /></el-icon>
         </div>
@@ -34,25 +56,52 @@ const currentQuery = computed(() => {
           <span class="brand-title">JobInsight</span>
           <span class="brand-subtitle">职薪洞察</span>
         </div>
-      </div>
+      </router-link>
 
       <nav class="nav-links">
         <router-link
-          v-for="item in navItems"
+          v-for="item in primaryNav"
           :key="item.path"
-          :to="{ path: item.path, query: currentQuery }"
+          :to="{ path: item.path, query: linkQuery(item.path) }"
           class="nav-item"
           active-class="is-active"
         >
           <el-icon class="nav-item-icon"><component :is="item.icon" /></el-icon>
           <span class="nav-item-text">{{ item.label }}</span>
+          <el-badge
+            v-if="item.path === '/shortlist' && workspace.savedJobIds.length > 0"
+            :value="workspace.savedJobIds.length"
+            type="primary"
+            class="nav-badge"
+          />
         </router-link>
+
+        <el-dropdown trigger="click" @command="(path: string) => router.push({ path, query: linkQuery(path) })">
+          <span class="nav-item nav-dropdown" :class="{ 'is-active': isAnalysisActive }">
+            <el-icon class="nav-item-icon"><DataAnalysis /></el-icon>
+            <span class="nav-item-text">数据分析</span>
+            <el-icon class="nav-caret"><ArrowDown /></el-icon>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="item in analysisNav"
+                :key="item.path"
+                :command="item.path"
+                :class="{ 'is-current': route.path === item.path }"
+              >
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span>{{ item.label }}</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </nav>
 
       <div class="header-actions">
-        <el-tag type="primary" effect="plain" class="baseline-badge" round>
-          <el-icon><InfoFilled /></el-icon>
-          <span>基准总量：<strong>2,251</strong> 组</span>
+        <el-tag type="info" effect="plain" class="sample-badge" round>
+          <el-icon><DataAnalysis /></el-icon>
+          <span>招聘样本数据</span>
         </el-tag>
       </div>
     </div>
@@ -77,6 +126,7 @@ const currentQuery = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 24px;
 }
 
@@ -86,6 +136,7 @@ const currentQuery = computed(() => {
   gap: 10px;
   cursor: pointer;
   user-select: none;
+  text-decoration: none;
 }
 
 .brand-icon-wrapper {
@@ -98,6 +149,7 @@ const currentQuery = computed(() => {
   justify-content: center;
   color: #ffffff;
   box-shadow: 0 2px 6px rgba(24, 144, 255, 0.35);
+  flex-shrink: 0;
 }
 
 .brand-info {
@@ -122,15 +174,16 @@ const currentQuery = computed(() => {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   height: 100%;
+  flex-wrap: nowrap;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 16px;
+  padding: 0 14px;
   height: 40px;
   border-radius: 6px;
   color: #606266;
@@ -138,6 +191,8 @@ const currentQuery = computed(() => {
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .nav-item:hover {
@@ -155,24 +210,91 @@ const currentQuery = computed(() => {
   font-size: 16px;
 }
 
+.nav-caret {
+  font-size: 12px;
+  color: #909399;
+}
+
+.nav-dropdown {
+  outline: none;
+}
+
+.nav-badge {
+  margin-left: 2px;
+}
+
+.nav-badge :deep(.el-badge__content) {
+  position: static;
+  transform: none;
+  font-size: 11px;
+  padding: 0 5px;
+  height: 16px;
+  line-height: 16px;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
-.baseline-badge {
+.sample-badge {
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  padding: 6px 14px;
+  padding: 6px 12px;
   background-color: #f4f4f5;
-  border-color: #dcdfe6;
-  color: #606266;
 }
 
-.baseline-badge strong {
-  color: #303133;
-  margin: 0 2px;
+:deep(.el-dropdown-menu__item.is-current) {
+  color: #409eff;
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .header-container {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .nav-item {
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  .header-actions {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .brand-subtitle {
+    display: none;
+  }
+
+  .brand-info {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 0 6px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .nav-item-icon {
+    display: none;
+  }
+
+  .nav-links {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
 }
 </style>

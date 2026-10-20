@@ -63,7 +63,7 @@ function renderDonutChart(data: OverviewData) {
   const option = {
     title: {
       text: '技术岗位类别构成分布',
-      subtext: `当前样本在招岗位总量: ${data.total_jobs.toLocaleString()} 组`,
+      subtext: `当前样本岗位组总量: ${data.total_jobs.toLocaleString()} 组`,
       left: 'center',
       top: 10,
       textStyle: {
@@ -170,13 +170,13 @@ onMounted(() => {
             <el-icon><DataLine /></el-icon>
           </div>
           <div class="kpi-meta">
-            <span class="kpi-label">在招岗位组样本</span>
+            <span class="kpi-label">招聘岗位样本</span>
             <div class="kpi-value-row">
               <span class="kpi-value">{{ overviewData?.total_jobs?.toLocaleString() ?? '-' }}</span>
               <span class="kpi-unit">组</span>
             </div>
             <div class="kpi-footnote">
-              精确 19 原始列去重基准
+              按来源字段分组后的岗位记录
             </div>
           </div>
         </div>
@@ -241,7 +241,7 @@ onMounted(() => {
               <span class="kpi-unit">组</span>
             </div>
             <div class="kpi-footnote">
-              消除 749 条原始重复行
+              组内多条来源记录已合并，不重复计数
             </div>
           </div>
         </div>
@@ -255,7 +255,7 @@ onMounted(() => {
         <template #header>
           <div class="card-header">
             <div class="header-left">
-              <span class="title">宏观薪资基准中位数</span>
+              <span class="title">样本薪资中位数</span>
               <el-tag size="small" type="success" effect="plain">严谨统计口径</el-tag>
             </div>
             <el-tooltip
@@ -281,7 +281,8 @@ onMounted(() => {
           </div>
 
           <p class="benchmark-desc">
-            全样本有效招聘薪资区间中位数（基准线 12,000 元/月）。中位数可有效剔除超高/极低薪资离群值对整体大盘的失真拉动。
+            当前样本中有效招聘薪资区间中点（下限与上限的平均）的中位数。
+            中位数用于描述这一组样本，不是某一岗位的薪资，也不代表实际录用薪资。
           </p>
 
           <div class="benchmark-details">
@@ -321,7 +322,7 @@ onMounted(() => {
 
     <!-- Thematic Navigation Cards -->
     <div class="navigation-section">
-      <h3 class="section-title">专题分析与深度穿透</h3>
+      <h3 class="section-title">分析入口</h3>
       <div class="thematic-grid">
         <!-- Salary View Jump -->
         <div class="thematic-card" @click="navigateTo('/salary')">
@@ -329,9 +330,9 @@ onMounted(() => {
             <el-icon><TrendCharts /></el-icon>
           </div>
           <div class="thematic-content">
-            <h4 class="thematic-title">薪资与地域分布分析</h4>
+            <h4 class="thematic-title">薪资与地域分布</h4>
             <p class="thematic-desc">
-              探索 11 大技术方向薪资排行、31 个省级行政区薪资梯队与企业规模对比，标注低样本预警。
+              按岗位类别与省份查看薪资分布，样本量不足 5 组时明确标记低样本预警。
             </p>
           </div>
           <div class="thematic-arrow">
@@ -345,9 +346,9 @@ onMounted(() => {
             <el-icon><Cpu /></el-icon>
           </div>
           <div class="thematic-content">
-            <h4 class="thematic-title">技能图谱与技术栈透视</h4>
+            <h4 class="thematic-title">技能标签分析</h4>
             <p class="thematic-desc">
-              严谨双分母渗透率（打标基准 833 组 vs 全量基准 2,251 组），多维技术栈雷达能力画像。
+              技能标签出现频次与双分母覆盖率（打标基准 vs 全量基准），并说明标注覆盖范围。
             </p>
           </div>
           <div class="thematic-arrow">
@@ -361,9 +362,9 @@ onMounted(() => {
             <el-icon><Search /></el-icon>
           </div>
           <div class="thematic-content">
-            <h4 class="thematic-title">在招岗位多维检索透视库</h4>
+            <h4 class="thematic-title">岗位探索</h4>
             <p class="thematic-desc">
-              高密度检索全量在招岗位，支持关键词、薪资范围过滤，单条数据穿透查看 19 列及技能依据链。
+              按条件检索招聘样本中的岗位记录，可收藏候选、加入对比并查看来源。
             </p>
           </div>
           <div class="thematic-arrow">

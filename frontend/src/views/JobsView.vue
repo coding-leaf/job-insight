@@ -1,106 +1,213 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  Search,
-  Refresh,
-  View,
-  Files
-} from '@element-plus/icons-vue'
-import { useFilterStore } from '@/stores/filter'
+import { ElMessage } from 'element-plus'
+import { Search, Refresh, View, Files } from '@element-plus/icons-vue'
 import { getJobs } from '@/api/jobs'
 import JobDetailDrawer from '@/components/JobDetailDrawer.vue'
-import type { JobItem, JobQueryParams } from '@/types/job'
+import JobActions from '@/components/JobActions.vue'
+import type { JobItem } from '@/types/job'
+import {
+  DEFAULT_JOB_SORT_FIELD,
+  DEFAULT_JOB_SORT_ORDER,
+  JOB_SORT_FIELDS,
+  buildJobQuery,
+  jobQueryRequestKey,
+  parseJobQuery,
+  salaryRangeError,
+  toJobQueryParams,
+  type JobQueryState,
+  type JobSortField,
+  type JobSortOrder
+} from '@/utils/jobQuery'
 
 const route = useRoute()
 const router = useRouter()
-const filterStore = useFilterStore()
+
+/** The URL is the single source of truth for applied conditions. */
+const applied = computed<JobQueryState>(() => parseJobQuery(route.query))
 
 const loading = ref(false)
 const jobs = ref<JobItem[]>([])
 const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
+const loadError = ref<string | null>(null)
+const hasLoadedOnce = ref(false)
+let requestToken = 0
+// A pagination size change can emit both size and page events in one tick, before the
+// route has committed; this keeps the second event from overwriting the first.
+let pendingState: JobQueryState | null = null
 
-// Search controls
-const keyword = ref('')
-const minSalary = ref<number | undefined>(undefined)
-const maxSalary = ref<number | undefined>(undefined)
-const hasSkills = ref<boolean | undefined>(undefined)
-const sortBy = ref<string>('id')
-const sortOrder = ref<'asc' | 'desc'>('asc')
+type ChipKey = 'keyword' | 'category' | 'province' | 'education' | 'minSalary' | 'hasSkills'
 
-// Drawer state
+const draft = ref({
+  keyword: applied.value.keyword,
+  minSalary: applied.value.minSalary,
+  maxSalary: applied.value.maxSalary,
+  hasSkills: applied.value.hasSkills
+})
+
+const rangeError = computed(() => salaryRangeError(applied.value))
+
+const activeChips = computed(() => {
+  const state = applied.value
+  const chips: Array<{ key: ChipKey; label: string }> = []
+  if (state.keyword) chips.push({ key: 'keyword', label: `关键词：${state.keyword}` })
+  if (state.category) chips.push({ key: 'category', label: `类别：${state.category}` })
+  if (state.province) chips.push({ key: 'province', label: `省份：${state.province}` })
+  if (state.education) chips.push({ key: 'education', label: `岗位学历要求：${state.education}` })
+  if (state.minSalary !== undefined || state.maxSalary !== undefined) {
+    const label =
+      state.minSalary !== undefined && state.maxSalary !== undefined
+        ? `月薪：${state.minSalary} - ${state.maxSalary} 元`
+        : state.minSalary !== undefined
+          ? `月薪：≥ ${state.minSalary} 元`
+          : `月薪：≤ ${state.maxSalary} 元`
+    chips.push({ key: 'minSalary', label })
+  }
+  if (state.hasSkills !== undefined) {
+    chips.push({ key: 'hasSkills', label: state.hasSkills ? '仅含技能标签' : '仅无技能标签' })
+  }
+  return chips
+})
+
 const drawerVisible = ref(false)
 const selectedJobId = ref<string | null>(null)
 
-async function loadData() {
+const sortBy = computed<JobSortField>({
+  get: () => applied.value.sortBy,
+  set: (field) => updateSort(field, applied.value.sortOrder)
+})
+
+const sortOrder = computed<JobSortOrder>({
+  get: () => applied.value.sortOrder,
+  set: (order) => updateSort(applied.value.sortBy, order)
+})
+
+const sortFieldOptions = JOB_SORT_FIELDS.map((field) => ({
+  value: field,
+  label:
+    field === 'id'
+      ? '默认 ID'
+      : field === 'published_at'
+        ? '发布时间'
+        : field === 'salary_min_monthly'
+          ? '最低月薪'
+          : field === 'salary_max_monthly'
+            ? '最高月薪'
+            : '区间中点'
+}))
+
+async function fetchJobs(state: JobQueryState) {
+  const token = ++requestToken
   loading.value = true
+  loadError.value = null
   try {
-    const params: JobQueryParams = {
-      ...filterStore.activeParams,
-      page: page.value,
-      page_size: pageSize.value,
-      sort_by: sortBy.value,
-      sort_order: sortOrder.value
+    const data = await getJobs(toJobQueryParams(state))
+    if (token !== requestToken) return
+    jobs.value = data.items
+    total.value = data.total
+    hasLoadedOnce.value = true
+    const lastPage = Math.max(1, data.total_pages)
+    if (state.page > lastPage) {
+      applyState({ ...state, page: lastPage })
     }
-
-    if (keyword.value.trim()) params.keyword = keyword.value.trim()
-    if (minSalary.value != null) params.min_salary = minSalary.value
-    if (maxSalary.value != null) params.max_salary = maxSalary.value
-    if (hasSkills.value != null) params.has_skills = hasSkills.value
-
-    const res = await getJobs(params)
-    jobs.value = res.items
-    total.value = res.total
   } catch (err) {
+    if (token !== requestToken) return
     console.error('Failed to load jobs list', err)
+    loadError.value = '岗位列表加载失败，当前结果可能不是最新数据'
+    if (!hasLoadedOnce.value) {
+      jobs.value = []
+      total.value = 0
+    }
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 
-function handleSearch() {
-  page.value = 1
-  const query = { ...route.query }
-  delete query.page
-  router.replace({ query })
-  loadData()
+function applyState(state: JobQueryState) {
+  pendingState = state
+  void router.replace({ query: buildJobQuery(state) })
 }
 
-function handleResetQuery() {
-  keyword.value = ''
-  minSalary.value = undefined
-  maxSalary.value = undefined
-  hasSkills.value = undefined
-  sortBy.value = 'id'
-  sortOrder.value = 'asc'
-  page.value = 1
-  const query = { ...route.query }
-  delete query.page
-  router.replace({ query })
-  loadData()
+/** Latest applied-or-pending conditions, so rapid control events compose instead of conflict. */
+function currentState(): JobQueryState {
+  return pendingState ?? applied.value
 }
 
-function handlePageChange(newPage: number) {
-  page.value = newPage
-  const query = { ...route.query }
-  if (newPage > 1) {
-    query.page = String(newPage)
-  } else {
-    delete query.page
+function applyDraft() {
+  const candidate: JobQueryState = {
+    ...currentState(),
+    keyword: draft.value.keyword,
+    minSalary: typeof draft.value.minSalary === 'number' ? draft.value.minSalary : undefined,
+    maxSalary: typeof draft.value.maxSalary === 'number' ? draft.value.maxSalary : undefined,
+    hasSkills: draft.value.hasSkills,
+    page: 1
   }
-  router.replace({ query })
-  loadData()
+  const error = salaryRangeError(candidate)
+  if (error) {
+    ElMessage.error(error)
+    return
+  }
+  applyState(candidate)
 }
 
-function handlePageSizeChange(newSize: number) {
-  pageSize.value = newSize
-  page.value = 1
-  const query = { ...route.query }
-  delete query.page
-  router.replace({ query })
-  loadData()
+function updateSort(field: JobSortField, order: JobSortOrder) {
+  applyState({ ...currentState(), sortBy: field, sortOrder: order, page: 1 })
+}
+
+function resetLocalQuery() {
+  applyState({
+    ...currentState(),
+    keyword: '',
+    minSalary: undefined,
+    maxSalary: undefined,
+    hasSkills: undefined,
+    page: 1,
+    sortBy: DEFAULT_JOB_SORT_FIELD,
+    sortOrder: DEFAULT_JOB_SORT_ORDER
+  })
+}
+
+function clearAllConditions() {
+  applyState({
+    ...parseJobQuery({}),
+    sortBy: DEFAULT_JOB_SORT_FIELD,
+    sortOrder: DEFAULT_JOB_SORT_ORDER
+  })
+}
+
+function removeChip(key: ChipKey) {
+  const next: JobQueryState = { ...currentState(), page: 1 }
+  switch (key) {
+    case 'keyword':
+      next.keyword = ''
+      break
+    case 'category':
+      next.category = undefined
+      break
+    case 'province':
+      next.province = undefined
+      break
+    case 'education':
+      next.education = undefined
+      break
+    case 'minSalary':
+      next.minSalary = undefined
+      next.maxSalary = undefined
+      break
+    case 'hasSkills':
+      next.hasSkills = undefined
+      break
+  }
+  applyState(next)
+}
+
+function handlePageChange(page: number) {
+  applyState({ ...currentState(), page })
+}
+
+function handlePageSizeChange(pageSize: number) {
+  applyState({ ...currentState(), pageSize, page: 1 })
 }
 
 function handleRowClick(row: JobItem) {
@@ -114,24 +221,29 @@ function openDetail(row: JobItem, event?: Event) {
   drawerVisible.value = true
 }
 
-// Watch global slicer filter changes -> reset page to 1 and reload
+// One request per applied condition set; late responses cannot overwrite a newer one.
 watch(
-  () => filterStore.activeParams,
+  () => jobQueryRequestKey(applied.value),
   () => {
-    page.value = 1
-    loadData()
+    void fetchJobs(applied.value)
   },
-  { deep: true }
+  { immediate: true }
 )
 
-onMounted(() => {
-  // Sync page from route if present
-  if (route.query.page && typeof route.query.page === 'string') {
-    const p = parseInt(route.query.page, 10)
-    if (!isNaN(p) && p > 0) page.value = p
-  }
-  loadData()
-})
+// Keep the draft controls aligned with URL changes (refresh, back/forward, chip removal).
+watch(
+  applied,
+  (state) => {
+    pendingState = null
+    draft.value = {
+      keyword: state.keyword,
+      minSalary: state.minSalary,
+      maxSalary: state.maxSalary,
+      hasSkills: state.hasSkills
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -139,102 +251,123 @@ onMounted(() => {
     <!-- Local Query Toolbar -->
     <el-card shadow="never" class="filter-card">
       <div class="search-form">
-        <!-- Keyword -->
         <div class="form-item">
-          <span class="item-label">岗位搜索</span>
+          <span class="item-label">关键词</span>
           <el-input
-            v-model="keyword"
-            placeholder="搜索岗位名、企业、描述或技能"
+            v-model="draft.keyword"
+            placeholder="岗位名称、企业、正文或技能标签"
             clearable
             :prefix-icon="Search"
-            style="width: 260px"
-            @keyup.enter="handleSearch"
+            class="keyword-input"
+            @keyup.enter="applyDraft"
           />
         </div>
 
-        <!-- Salary Min / Max -->
         <div class="form-item">
-          <span class="item-label">月薪区间 (元)</span>
+          <span class="item-label">月薪区间（元）</span>
           <div class="salary-range-inputs">
             <el-input-number
-              v-model="minSalary"
+              v-model="draft.minSalary"
               :min="0"
               :step="1000"
-              placeholder="最低月薪"
+              placeholder="最低"
               :controls="false"
-              style="width: 100px"
+              class="salary-input"
             />
             <span class="range-sep">-</span>
             <el-input-number
-              v-model="maxSalary"
+              v-model="draft.maxSalary"
               :min="0"
               :step="1000"
-              placeholder="最高月薪"
+              placeholder="最高"
               :controls="false"
-              style="width: 100px"
+              class="salary-input"
             />
           </div>
         </div>
 
-        <!-- Skills Filter -->
         <div class="form-item">
-          <span class="item-label">技能打标</span>
-          <el-select
-            v-model="hasSkills"
-            placeholder="全部岗位"
-            clearable
-            style="width: 130px"
-          >
-            <el-option label="全部" :value="undefined" />
+          <span class="item-label">技能标注</span>
+          <el-select v-model="draft.hasSkills" placeholder="全部" clearable class="skills-select">
+            <el-option label="全部岗位" :value="undefined" />
             <el-option label="仅含技能标签" :value="true" />
             <el-option label="无技能标签" :value="false" />
           </el-select>
         </div>
 
-        <!-- Sort by -->
         <div class="form-item">
-          <span class="item-label">排序方式</span>
-          <el-select v-model="sortBy" style="width: 130px" @change="handleSearch">
-            <el-option label="默认 ID" value="id" />
-            <el-option label="发布时间" value="published_at" />
-            <el-option label="中点月薪" value="salary_midpoint" />
-            <el-option label="最低月薪" value="salary_min_monthly" />
-            <el-option label="最高月薪" value="salary_max_monthly" />
+          <span class="item-label">排序</span>
+          <el-select v-model="sortBy" class="sort-select">
+            <el-option
+              v-for="option in sortFieldOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
           </el-select>
-          <el-select v-model="sortOrder" style="width: 90px; margin-left: 6px;" @change="handleSearch">
+          <el-select v-model="sortOrder" class="order-select">
             <el-option label="升序" value="asc" />
             <el-option label="降序" value="desc" />
           </el-select>
         </div>
 
-        <!-- Buttons -->
         <div class="form-actions">
-          <el-button type="primary" :icon="Search" @click="handleSearch">
-            查询
-          </el-button>
-          <el-button :icon="Refresh" @click="handleResetQuery">
-            重置
-          </el-button>
+          <el-button type="primary" :icon="Search" @click="applyDraft">查询</el-button>
+          <el-button :icon="Refresh" @click="resetLocalQuery">重置条件</el-button>
         </div>
+      </div>
+
+      <el-alert
+        v-if="rangeError"
+        :title="`${rangeError}，当前区间条件不会提交`"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="range-alert"
+      />
+
+      <div v-if="activeChips.length > 0" class="active-filters">
+        <span class="chips-label">当前条件</span>
+        <el-tag
+          v-for="chip in activeChips"
+          :key="chip.key"
+          closable
+          type="info"
+          effect="plain"
+          @close="removeChip(chip.key)"
+        >
+          {{ chip.label }}
+        </el-tag>
+        <el-button link type="primary" size="small" @click="clearAllConditions">清空全部</el-button>
       </div>
     </el-card>
 
-    <!-- Table Card -->
+    <!-- Result Table -->
     <el-card shadow="never" class="table-card">
       <template #header>
         <div class="table-header">
           <div class="table-title">
             <el-icon><Files /></el-icon>
-            <span>在招岗位检索透视结果</span>
-            <el-tag size="small" type="primary" effect="plain" class="ml-2">
-              共命中 {{ total.toLocaleString() }} 组岗位
+            <span>招聘岗位检索结果</span>
+            <el-tag v-if="hasLoadedOnce" size="small" type="primary" effect="plain">
+              共命中 {{ total.toLocaleString() }} 条岗位记录
             </el-tag>
+            <el-tag v-else size="small" type="info" effect="plain">结果未加载</el-tag>
           </div>
-          <div class="table-subtip">
-            点击任意行可调起右侧全景抽屉查看原始 19 列与技能 Provenance 证据链
-          </div>
+          <div class="table-subtip">点击行查看岗位详情、来源链接与技能标签依据</div>
         </div>
       </template>
+
+      <el-alert
+        v-if="loadError"
+        :title="loadError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="state-alert"
+      >
+        <el-button size="small" @click="fetchJobs(applied)">重试</el-button>
+      </el-alert>
 
       <el-table
         :data="jobs"
@@ -246,7 +379,6 @@ onMounted(() => {
         class="dense-table"
         @row-click="handleRowClick"
       >
-        <!-- ID & Merge Badge -->
         <el-table-column prop="id" label="岗位组 ID" width="110" align="center">
           <template #default="{ row }">
             <div class="id-cell">
@@ -258,14 +390,13 @@ onMounted(() => {
                 effect="plain"
                 class="merge-tag"
               >
-                {{ row.source_ids.length }}合1
+                {{ row.source_ids.length }} 条合并
               </el-tag>
             </div>
           </template>
         </el-table-column>
 
-        <!-- Title & Category -->
-        <el-table-column prop="title" label="职位名称 / 类别" min-width="180">
+        <el-table-column prop="title" label="岗位名称 / 类别" min-width="180">
           <template #default="{ row }">
             <div class="title-cell">
               <span class="job-title" :title="row.title">{{ row.title }}</span>
@@ -278,16 +409,16 @@ onMounted(() => {
               >
                 {{ row.job_category }}
               </el-tag>
+              <span v-else class="text-muted">未分类</span>
             </div>
           </template>
         </el-table-column>
 
-        <!-- Company -->
-        <el-table-column prop="company" label="招聘企业" min-width="160">
+        <el-table-column prop="company" label="招聘企业" min-width="150">
           <template #default="{ row }">
             <div class="company-cell">
               <span class="company-name" :title="row.company">{{ row.company }}</span>
-              <div class="company-sub">
+              <div v-if="row.company_size || row.company_type" class="company-sub">
                 <span v-if="row.company_size">{{ row.company_size }}</span>
                 <span v-if="row.company_type"> · {{ row.company_type }}</span>
               </div>
@@ -295,7 +426,6 @@ onMounted(() => {
           </template>
         </el-table-column>
 
-        <!-- Location -->
         <el-table-column label="工作地点" width="130">
           <template #default="{ row }">
             <div class="location-cell">
@@ -305,33 +435,31 @@ onMounted(() => {
           </template>
         </el-table-column>
 
-        <!-- Salary -->
-        <el-table-column label="薪资标准" min-width="150" align="right">
+        <el-table-column label="薪资" min-width="150" align="right">
           <template #default="{ row }">
             <div class="salary-cell">
-              <span class="salary-text">{{ row.salary_display || '面议' }}</span>
-              <span v-if="row.salary_eligible_for_midpoint && row.salary_midpoint" class="salary-mid">
-                核算中点: ¥{{ row.salary_midpoint.toLocaleString() }}
+              <span class="salary-text">{{ row.salary_display || '未注明' }}</span>
+              <span
+                v-if="row.salary_eligible_for_midpoint && row.salary_midpoint !== null"
+                class="salary-mid"
+              >
+                区间中点 ¥{{ row.salary_midpoint.toLocaleString() }}
               </span>
-              <span v-else class="salary-excluded">
-                未纳核算
-              </span>
+              <span v-else class="salary-excluded">未参与中点核算</span>
             </div>
           </template>
         </el-table-column>
 
-        <!-- Education & Exp -->
-        <el-table-column label="学历 / 经验" width="140">
+        <el-table-column label="学历 / 经验" width="150">
           <template #default="{ row }">
             <div class="req-cell">
-              <span>{{ row.education_requirement || '学历不限' }}</span>
-              <span class="text-sub">{{ row.experience_requirement || '经验不限' }}</span>
+              <span>{{ row.education_requirement || '未注明' }}</span>
+              <span class="text-sub">{{ row.experience_requirement || '未注明' }}</span>
             </div>
           </template>
         </el-table-column>
 
-        <!-- Skills Tags Preview -->
-        <el-table-column label="打标技能" min-width="180">
+        <el-table-column label="技能标签" min-width="170">
           <template #default="{ row }">
             <div class="skills-cell">
               <template v-if="row.skills && row.skills.length > 0">
@@ -354,13 +482,12 @@ onMounted(() => {
                   +{{ row.skills.length - 3 }}
                 </el-tag>
               </template>
-              <span v-else class="text-muted">无标签</span>
+              <span v-else class="text-muted">未标注</span>
             </div>
           </template>
         </el-table-column>
 
-        <!-- Actions -->
-        <el-table-column label="操作" width="100" align="center" fixed="right">
+        <el-table-column label="操作" width="100" align="center">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -369,17 +496,29 @@ onMounted(() => {
               :icon="View"
               @click.stop="openDetail(row, $event)"
             >
-              详情档案
+              详情
             </el-button>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="收藏 / 对比" width="150" align="center" fixed="right">
+          <template #default="{ row }">
+            <JobActions :job-id="row.id" />
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- Pagination -->
-      <div class="pagination-container">
+      <el-empty
+        v-if="!loading && !loadError && jobs.length === 0 && hasLoadedOnce"
+        description="当前条件下没有匹配的岗位记录，可以调整或清空条件"
+      >
+        <el-button type="primary" @click="clearAllConditions">清空全部条件</el-button>
+      </el-empty>
+
+      <div v-if="total > 0" class="pagination-container">
         <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
+          :current-page="applied.page"
+          :page-size="applied.pageSize"
           :page-sizes="[10, 20, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
@@ -390,11 +529,7 @@ onMounted(() => {
       </div>
     </el-card>
 
-    <!-- Deep Component Job Detail Drawer -->
-    <JobDetailDrawer
-      v-model:visible="drawerVisible"
-      :job-id="selectedJobId"
-    />
+    <JobDetailDrawer v-model:visible="drawerVisible" :job-id="selectedJobId" />
   </div>
 </template>
 
@@ -431,14 +566,34 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.keyword-input {
+  width: 240px;
+}
+
 .salary-range-inputs {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
+.salary-input {
+  width: 96px;
+}
+
 .range-sep {
   color: #909399;
+}
+
+.skills-select {
+  width: 130px;
+}
+
+.sort-select {
+  width: 120px;
+}
+
+.order-select {
+  width: 88px;
 }
 
 .form-actions {
@@ -446,6 +601,26 @@ onMounted(() => {
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+.range-alert,
+.state-alert {
+  margin-top: 12px;
+}
+
+.active-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.chips-label {
+  font-size: 12px;
+  color: #909399;
 }
 
 .table-header {
@@ -589,10 +764,6 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.ml-2 {
-  margin-left: 8px;
-}
-
 .dense-table :deep(tr) {
   cursor: pointer;
 }
@@ -601,5 +772,15 @@ onMounted(() => {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+  .form-actions {
+    margin-left: 0;
+  }
+
+  .pagination-container {
+    justify-content: center;
+  }
 }
 </style>

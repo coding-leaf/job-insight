@@ -1,12 +1,26 @@
 <script setup lang="ts">
 import GlobalHeader from '@/components/GlobalHeader.vue'
 import GlobalSlicer from '@/components/GlobalSlicer.vue'
+import CompareTray from '@/components/CompareTray.vue'
+import { useWorkspaceStore } from '@/stores/workspace'
+
+const workspace = useWorkspaceStore()
 </script>
 
 <template>
-  <div class="app-layout">
+  <div class="app-layout" :class="{ 'has-compare-tray': workspace.compareJobIds.length > 0 }">
     <GlobalHeader />
     <GlobalSlicer />
+
+    <el-alert
+      v-if="workspace.persistenceNotice"
+      :title="workspace.persistenceNotice"
+      type="warning"
+      show-icon
+      class="persistence-notice"
+      @close="workspace.dismissPersistenceNotice()"
+    />
+
     <main class="app-main">
       <div class="content-wrapper">
         <router-view v-slot="{ Component }">
@@ -16,6 +30,8 @@ import GlobalSlicer from '@/components/GlobalSlicer.vue'
         </router-view>
       </div>
     </main>
+
+    <CompareTray />
   </div>
 </template>
 
@@ -63,6 +79,16 @@ body {
 .app-main {
   flex: 1;
   padding: 24px 0 40px;
+}
+
+.has-compare-tray .app-main {
+  padding-bottom: 110px;
+}
+
+.persistence-notice {
+  max-width: 1440px;
+  width: calc(100% - 48px);
+  margin: 12px auto 0;
 }
 
 .content-wrapper {

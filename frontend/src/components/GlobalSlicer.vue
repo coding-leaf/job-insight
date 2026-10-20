@@ -42,7 +42,12 @@ const defaultEducationLevels = [
   '不限'
 ]
 
+// The slicer belongs to the exploration/analysis pages only; it must never
+// silently filter the shortlist or the comparison.
+const visible = computed(() => route.meta.showSlicer === true)
+
 const loading = ref(false)
+const loaded = ref(false)
 const options = ref<MetaOptionsData>({
   categories: defaultCategories,
   provinces: defaultProvinces,
@@ -74,16 +79,22 @@ const activeFilterCount = computed(() => {
 })
 
 async function fetchOptions() {
+  if (loaded.value) return
   loading.value = true
   try {
     const data = await getOptions()
     options.value = data
+    loaded.value = true
   } catch (err) {
     console.error('Failed to load filter options', err)
   } finally {
     loading.value = false
   }
 }
+
+watch(visible, (isVisible) => {
+  if (isVisible) fetchOptions()
+})
 
 function applyFilters() {
   filterStore.setCategory(selectedCategory.value)
@@ -149,16 +160,16 @@ function handleReset() {
 }
 
 onMounted(() => {
-  fetchOptions()
+  if (visible.value) fetchOptions()
 })
 </script>
 
 <template>
-  <div class="global-slicer">
+  <div v-if="visible" class="global-slicer">
     <div class="slicer-container">
       <div class="slicer-label">
         <el-icon class="label-icon"><Filter /></el-icon>
-        <span class="label-text">全局切片分析器</span>
+        <span class="label-text">分析范围</span>
         <el-badge
           v-if="activeFilterCount > 0"
           :value="activeFilterCount"
@@ -170,7 +181,7 @@ onMounted(() => {
       <div class="slicer-controls">
         <!-- Category selector -->
         <div class="control-item">
-          <span class="control-prefix">技术类别</span>
+          <span class="control-prefix">岗位类别</span>
           <el-select
             v-model="selectedCategory"
             placeholder="全部分类"
@@ -192,7 +203,7 @@ onMounted(() => {
 
         <!-- Province selector -->
         <div class="control-item">
-          <span class="control-prefix">工作省份</span>
+          <span class="control-prefix">省份</span>
           <el-select
             v-model="selectedProvince"
             placeholder="全国全部省份"
@@ -214,7 +225,7 @@ onMounted(() => {
 
         <!-- Education selector -->
         <div class="control-item">
-          <span class="control-prefix">学历门槛</span>
+          <span class="control-prefix">岗位学历要求</span>
           <el-select
             v-model="selectedEducation"
             placeholder="全部学历要求"
@@ -242,18 +253,18 @@ onMounted(() => {
           :disabled="activeFilterCount === 0"
           @click="handleReset"
         >
-          重置切片
+          重置条件
         </el-button>
       </div>
 
       <div class="slicer-tips">
         <el-tooltip
-          content="切片条件自动与 URL 同步，刷新、回退或切换页面均保持分析范围一致"
+          content="条件自动与页面地址同步，刷新、前进后退或切换页面时保持当前分析范围；候选清单与岗位对比不受影响"
           placement="top"
         >
           <div class="sync-indicator">
             <el-icon class="sync-icon"><Connection /></el-icon>
-            <span class="sync-text">URL状态已同步</span>
+            <span class="sync-text">地址已同步</span>
           </div>
         </el-tooltip>
       </div>

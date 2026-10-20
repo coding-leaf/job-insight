@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { Cpu, Document } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { Cpu, Document, Search } from '@element-plus/icons-vue'
 import { useFilterStore } from '@/stores/filter'
 import { getSkillsTop } from '@/api/stats'
 import { useECharts } from '@/composables/useECharts'
 import type { SkillsTopData } from '@/types/job'
 
+const router = useRouter()
 const filterStore = useFilterStore()
 
 const loading = ref(false)
@@ -233,6 +235,14 @@ watch(
   { deep: true }
 )
 
+/** Keyword search also matches company/title/description, so it is not an exact tag filter. */
+function searchByKeyword(skillName: string) {
+  void router.push({
+    path: '/jobs',
+    query: { ...filterStore.toQuery(), keyword: skillName }
+  })
+}
+
 onMounted(() => {
   loadData()
 })
@@ -249,7 +259,7 @@ onMounted(() => {
           <div class="method-desc">
             1. <strong>严格双分母呈现</strong>：<strong>打标基准比 K(s)/L</strong>（以含技能标签岗位组为分母）与 <strong>全量基准比 K(s)/N</strong>（以当前全部筛选岗位组为分母）必须并列呈现，严禁混淆分母。<br />
             2. 同一组内的多份证据、重复技能均只计一次频次，技能标签展开不虚增岗位数。<br />
-            3. 当前快照下无标签不代表岗位不需要技能，24 个字典技能不等于行业全貌，本系统杜绝断言“最佳技能路线”。
+            3. 当前快照下无标签不代表岗位不需要技能，当前技能字典也不等于行业全貌，本系统不提供所谓最佳技能路线。
           </div>
         </div>
       </div>
@@ -366,6 +376,18 @@ onMounted(() => {
             />
           </template>
         </el-table-column>
+        <el-table-column label="相关操作" width="150" align="center">
+          <template #default="{ row }">
+            <el-tooltip
+              content="在岗位探索中按关键词搜索：会匹配岗位名称、企业、正文或技能标签，不等于按技能标签精确筛选"
+              placement="top"
+            >
+              <el-button type="primary" link size="small" :icon="Search" @click="searchByKeyword(row.skill_name)">
+                搜索该标签
+              </el-button>
+            </el-tooltip>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
   </div>
@@ -456,11 +478,11 @@ onMounted(() => {
 
 .charts-row {
   display: grid;
-  grid-template-columns: 60% 40%;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: 20px;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1200px) {
   .charts-row {
     grid-template-columns: 1fr;
   }

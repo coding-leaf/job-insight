@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import axios from 'axios'
 import {
   Briefcase,
   Location,
@@ -11,7 +12,9 @@ import {
   CircleCheckFilled
 } from '@element-plus/icons-vue'
 import { getJobDetail } from '@/api/jobs'
+import JobActions from '@/components/JobActions.vue'
 import type { JobItem } from '@/types/job'
+import { toSafeExternalUrl } from '@/utils/jobDisplay'
 
 interface Props {
   visible: boolean
@@ -25,27 +28,43 @@ const emit = defineEmits<{
 
 const loading = ref(false)
 const job = ref<JobItem | null>(null)
+const loadError = ref<string | null>(null)
+const sourceUrl = computed(() => toSafeExternalUrl(job.value?.source_url))
+let requestToken = 0
 
 watch(
   () => [props.visible, props.jobId],
-  async ([isVisible, id]) => {
-    if (isVisible && id) {
-      await fetchJob(id as string)
+  ([isVisible, id]) => {
+    if (isVisible && typeof id === 'string' && id) {
+      void fetchJob(id)
     } else if (!isVisible) {
+      requestToken += 1
       job.value = null
+      loadError.value = null
+      loading.value = false
     }
   }
 )
 
 async function fetchJob(id: string) {
+  const token = ++requestToken
   loading.value = true
+  loadError.value = null
+  // Never show the previous record while the newly selected one is loading.
+  if (job.value?.id !== id) job.value = null
   try {
-    const data = await getJobDetail(id)
+    const data = await getJobDetail(id, { silentError: true })
+    if (token !== requestToken) return
     job.value = data
   } catch (err) {
-    console.error('Failed to fetch job detail', err)
+    if (token !== requestToken) return
+    job.value = null
+    loadError.value =
+      axios.isAxiosError(err) && err.response?.status === 404
+        ? '当前数据中未找到该岗位记录'
+        : '岗位详情加载失败，请稍后重试'
   } finally {
-    loading.value = false
+    if (token === requestToken) loading.value = false
   }
 }
 
@@ -57,13 +76,24 @@ function handleClose() {
 <template>
   <el-drawer
     :model-value="visible"
-    title="岗位全景档案与原始溯源"
+    title="岗位详情与来源"
     size="680px"
     destroy-on-close
     class="job-detail-drawer"
     @update:model-value="emit('update:visible', $event)"
   >
     <div v-loading="loading" class="drawer-content">
+      <el-alert
+        v-if="loadError"
+        :title="loadError"
+        type="error"
+        :closable="false"
+        show-icon
+        class="load-error"
+      >
+        <el-button v-if="jobId" size="small" @click="fetchJob(jobId)">重试</el-button>
+      </el-alert>
+
       <template v-if="job">
         <!-- Header Info -->
         <div class="job-header">
@@ -78,6 +108,7 @@ function handleClose() {
             >
               {{ job.job_category }}
             </el-tag>
+            <el-tag v-else size="small" type="info" effect="plain">未分类</el-tag>
           </div>
 
           <div class="company-row">
@@ -87,14 +118,21 @@ function handleClose() {
           </div>
 
           <div class="salary-highlight">
-            <span class="salary-display">{{ job.salary_display || '面议 / 未公开' }}</span>
-            <span v-if="job.salary_eligible_for_midpoint && job.salary_midpoint" class="midpoint-badge">
-              中位数核算值: <strong>{{ job.salary_midpoint.toLocaleString() }}</strong> 元/月
+            <span class="salary-display">{{ job.salary_display || '薪资未注明' }}</span>
+            <span
+              v-if="job.salary_eligible_for_midpoint && job.salary_midpoint !== null"
+              class="midpoint-badge"
+            >
+              区间中点（元/月）: <strong>{{ job.salary_midpoint.toLocaleString() }}</strong>
             </span>
             <span v-else class="midpoint-excluded">
               <el-icon><WarningFilled /></el-icon>
-              {{ job.salary_exclude_reason || '不参与薪资统计中点计算' }}
+              {{ job.salary_exclude_reason || '区间不完整，无法计算中点' }}
             </span>
+          </div>
+
+          <div class="job-actions-row">
+            <JobActions :job-id="job.id" variant="button" />
           </div>
         </div>
 
@@ -103,37 +141,45 @@ function handleClose() {
         <!-- Key Meta Properties -->
         <div class="section-title">
           <el-icon><Briefcase /></el-icon>
-          <span>核心招聘画像 (原始 19 列映射)</span>
+          <span>岗位基本信息</span>
         </div>
 
         <el-descriptions :column="2" border size="default" class="meta-descriptions">
           <el-descriptions-item label="工作地点">
             <el-icon class="desc-icon"><Location /></el-icon>
             {{ job.work_location || '未注明' }}
-            <span v-if="job.province" class="sub-location">({{ job.province }} · {{ job.city || '未注明市' }})</span>
+            <span v-if="job.province" class="sub-location">
+              ({{ job.province }} · {{ job.city || '城市未注明' }})
+            </span>
           </el-descriptions-item>
 
-          <el-descriptions-item label="学历门槛">
+          <el-descriptions-item label="岗位学历要求">
             <el-icon class="desc-icon"><School /></el-icon>
-            {{ job.education_requirement || '不限' }}
-            <span v-if="job.education_min_code !== null && job.education_min_code !== undefined" class="sub-val">
+            {{ job.education_requirement || '未注明' }}
+            <span
+              v-if="job.education_min_code !== null && job.education_min_code !== undefined"
+              class="sub-val"
+            >
               (代码: {{ job.education_min_code }})
             </span>
           </el-descriptions-item>
 
           <el-descriptions-item label="经验要求">
-            {{ job.experience_requirement || '不限' }}
-            <span v-if="job.experience_min_years !== null && job.experience_min_years !== undefined" class="sub-val">
-              ({{ job.experience_min_years }}年 / {{ job.experience_status || '标准' }})
+            {{ job.experience_requirement || '未注明' }}
+            <span
+              v-if="job.experience_min_years !== null && job.experience_min_years !== undefined"
+              class="sub-val"
+            >
+              ({{ job.experience_min_years }} 年 / {{ job.experience_status || '未注明' }})
             </span>
           </el-descriptions-item>
 
           <el-descriptions-item label="专业要求">
-            {{ job.major_requirement || '不限' }}
+            {{ job.major_requirement || '未注明' }}
           </el-descriptions-item>
 
           <el-descriptions-item label="招聘人数">
-            {{ job.recruitment_headcount ? `${job.recruitment_headcount} 人` : '若干 / 未注明' }}
+            {{ job.recruitment_headcount ? `${job.recruitment_headcount} 人` : '未注明' }}
           </el-descriptions-item>
 
           <el-descriptions-item label="发布时间">
@@ -141,15 +187,15 @@ function handleClose() {
           </el-descriptions-item>
 
           <el-descriptions-item label="分类来源">
-            {{ job.category_source || '规则分类' }}
+            {{ job.category_source || '未注明' }}
           </el-descriptions-item>
 
-          <el-descriptions-item label="月薪范围">
+          <el-descriptions-item label="月薪范围（元/月）">
             <template v-if="job.salary_min_monthly !== null && job.salary_max_monthly !== null">
-              ¥{{ job.salary_min_monthly }} - ¥{{ job.salary_max_monthly }} / 月
+              ¥{{ job.salary_min_monthly }} - ¥{{ job.salary_max_monthly }}
             </template>
             <template v-else>
-              缺失有效月薪边界
+              未注明有效月薪边界
             </template>
           </el-descriptions-item>
         </el-descriptions>
@@ -157,9 +203,9 @@ function handleClose() {
         <!-- Skills & Provenance -->
         <div class="section-title mt-4">
           <el-icon><Discount /></el-icon>
-          <span>技能图谱打标与证据溯源 (Provenance)</span>
+          <span>技能标签与来源依据</span>
           <el-tag size="small" type="success" effect="plain" class="ml-2">
-            共计 {{ job.skills.length }} 项技能标签
+            共 {{ job.skills.length }} 项标签
           </el-tag>
         </div>
 
@@ -189,28 +235,31 @@ function handleClose() {
           </div>
         </div>
         <div v-else class="empty-skills-tip">
-          <el-empty description="当前岗位组未打标特定技能标签 (遵循保留原始原则，不编造标签)" :image-size="60" />
+          <el-empty
+            description="当前样本暂无技能标签，无法核对"
+            :image-size="60"
+          />
         </div>
 
-        <!-- Merge & Deduplication Audit -->
+        <!-- Source records -->
         <div class="section-title mt-4">
           <el-icon><Files /></el-icon>
-          <span>原始来源组与去重审计</span>
+          <span>原始来源记录</span>
         </div>
 
         <div class="audit-card">
           <div class="audit-row">
-            <span class="audit-label">组代表 ID (字典序最小):</span>
+            <span class="audit-label">岗位组代表 ID:</span>
             <code class="audit-code">{{ job.id }}</code>
           </div>
           <div class="audit-row">
-            <span class="audit-label">合并记录数:</span>
+            <span class="audit-label">合并来源记录数:</span>
             <el-tag :type="job.source_ids.length > 1 ? 'warning' : 'info'" size="small">
-              {{ job.source_ids.length }} 条原始抓取记录合并
+              {{ job.source_ids.length }} 条原始记录
             </el-tag>
           </div>
           <div v-if="job.source_ids.length > 1" class="audit-sources">
-            <span class="audit-label">关联来源 IDs:</span>
+            <span class="audit-label">关联来源 ID:</span>
             <div class="source-id-tags">
               <el-tag
                 v-for="sid in job.source_ids"
@@ -223,39 +272,47 @@ function handleClose() {
               </el-tag>
             </div>
           </div>
-          <div v-if="job.source_url" class="audit-row">
-            <span class="audit-label">原始来源链接:</span>
+          <div v-if="sourceUrl" class="audit-row">
+            <span class="audit-label">原始招聘链接:</span>
             <el-link
-              :href="job.source_url"
+              :href="sourceUrl"
               target="_blank"
+              rel="noopener noreferrer"
               type="primary"
               :underline="false"
               class="source-link"
             >
               <el-icon><Link /></el-icon>
-              <span>{{ job.source_url }}</span>
+              <span>{{ sourceUrl }}</span>
             </el-link>
           </div>
+          <div v-else class="audit-row">
+            <span class="audit-label">原始招聘链接:</span>
+            <span class="text-muted-small">未提供可打开的来源链接</span>
+          </div>
+          <p class="audit-tip">
+            来源链接由招聘方发布，当前状态与是否仍在招聘请以原始页面为准。
+          </p>
         </div>
 
         <!-- Full Job Description -->
         <div class="section-title mt-4">
           <el-icon><Files /></el-icon>
-          <span>原始招聘需求正文 (Description)</span>
+          <span>岗位正文（来源原文）</span>
         </div>
 
         <div class="description-box">
-          <pre class="desc-text">{{ job.description || '暂无原始需求描述文本' }}</pre>
+          <pre class="desc-text">{{ job.description || '来源未提供岗位正文；其他字段与来源仍可查看' }}</pre>
         </div>
       </template>
 
-      <template v-else-if="!loading">
-        <el-empty description="未检索到岗位数据" />
+      <template v-else-if="!loading && !loadError">
+        <el-empty description="当前数据中未找到该岗位记录" />
       </template>
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">关闭抽屉</el-button>
+      <el-button @click="handleClose">关闭</el-button>
     </template>
   </el-drawer>
 </template>
@@ -502,5 +559,27 @@ function handleClose() {
 
 .empty-skills-tip {
   padding: 16px 0;
+}
+
+.load-error {
+  margin-bottom: 16px;
+}
+
+.job-actions-row {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #dbe6f5;
+}
+
+.text-muted-small {
+  font-size: 12px;
+  color: #909399;
+}
+
+.audit-tip {
+  margin: 0;
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.5;
 }
 </style>
