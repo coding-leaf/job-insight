@@ -204,3 +204,67 @@ Completed end-to-end implementation of job candidate workflow: workbench landing
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: 招聘系统 NoSQL 数据层复评与研究交接
+<!-- trellis-session: v=2 fp=87b7e5f519936662 -->
+
+**Date**: 2026-10-20
+**Task**: 招聘系统 NoSQL 数据层复评与研究交接
+**Branch**: `main`
+
+### Summary
+
+保留招聘主题和既有应用功能；现有业务脚本弃用。完成文档复评，MongoDB 文档适配可验证，当前固定小样本性能优势尚未证明；MySQL 关系与 JSON 均作公平对照。
+
+### Main Changes
+
+- 创建 .trellis/tasks/10-20-nosql-data-layer-review，完成需求、选型评估、候选设计、反证基准计划、后续实施门槛与 handoff。配置 7 条实现和 8 条检查上下文。只改文档，保持 planning。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] 只读审计输入哈希及岗位/来源成员/技能结构；任务上下文与文档完整性检查通过。没有运行旧业务脚本、数据库实验或产品测试，未报告任何数据库胜出成绩。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 接手 agent 先读 .trellis/tasks/10-20-nosql-data-layer-review/handoff.md。经用户审阅后再明确批准隔离验证；不直接迁移生产、不恢复旧 seed、不迁移浏览器收藏。
+
+
+## Session 10: 归档 NoSQL 复评，关闭实施交接
+<!-- trellis-session: v=2 fp=52e4627a3297956b -->
+
+**Date**: 2026-10-20
+**Task**: 归档 NoSQL 复评，关闭实施交接
+**Branch**: `main`
+
+### Summary
+
+用户要求归档。评估结束：当前数据未证明 MongoDB 明显优于 MySQL。招聘主题和现有应用功能保留，没有获批的新改造或后续验证交接。
+
+### Main Changes
+
+- 归档 nosql-data-layer-review，新增 closure.md 并为历史 handoff、design、implement、benchmark 标明不作为执行指令；关闭 handoff_active，修正归档后的上下文引用。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] 确认任务已移至 archive/2026-10，状态 completed，活动任务指针已清除；未改产品代码、未操作数据库或旧业务脚本。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 无待执行交接；如将来提出新数据层需求，另行评估，不自动接续归档候选。
