@@ -1,0 +1,33 @@
+{
+  "input_path": "data/processed/jobs_cleaned_grouped.json",
+  "sha256": "0f317fb486052a56f1c1f00b6c00da071c12f9fec98dd7993273469eb13498b1",
+  "bytes": 4189728,
+  "groups": 2251,
+  "field_shapes": 1,
+  "coverage": {
+    "title": 2251,
+    "company": 2251,
+    "province": 2016,
+    "city": 486,
+    "description": 1340,
+    "experience_min_years": 17,
+    "source_url": 2251,
+    "published_at": 2251
+  },
+  "tagged": 833,
+  "unique_tags": 24,
+  "eligible_salary": 2194,
+  "source_hosts": {
+    "job.ncss.cn": 2251
+  },
+  "versions_per_id_max": 1,
+  "skill_entries": 2287,
+  "group_integrity": {
+    "duplicate_representative_ids": 0,
+    "empty_source_id_groups": 0,
+    "representative_not_smallest_member": 0,
+    "source_members_shared_between_groups": 0,
+    "duplicate_skill_names_within_groups": 0,
+    "empty_skill_provenance_items": 0
+  }
+}

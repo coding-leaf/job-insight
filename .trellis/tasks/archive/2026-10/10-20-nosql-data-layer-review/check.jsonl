@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/data-contract.md","reason":"保持原始分组、来源成员、薪资与技能分母语义；新研究不得改变现有数据契约"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"了解当前 MongoDB 仓库；seed 依赖和100%索引声明是历史信息，不覆盖用户弃用要求或替代实际执行计划"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"现有公共筛选与浏览器个人状态保持兼容；本任务不迁移收藏"}
+{"file":"docs/data-dictionary.md","reason":"字段含义、缺失值、来源与技能依据的真实性边界"}
+{"file":"docs/statistical-methodology.md","reason":"比较模型须使用同组集合、区间重叠、exact分位数及技能双分母"}
+{"file":".trellis/tasks/archive/2026-10/10-20-nosql-data-layer-review/research/evidence.md","reason":"真实数据/代码证据、忽略文件、脚本弃用和事实/假设划分"}
+{"file":".trellis/tasks/archive/2026-10/10-20-nosql-data-layer-review/research/sources.md","reason":"官方能力及 MySQL 对照、索引限制、部署与驱动兼容性"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查输入身份、发布版本、仓库读取与DTO/页面统计的跨层一致性"}
