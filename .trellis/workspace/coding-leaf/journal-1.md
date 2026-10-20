@@ -149,3 +149,58 @@ Archived remaining 00-bootstrap-guidelines task after populating frontend and ba
 ### Status
 
 [OK] **Completed**
+
+
+## Session 7: JobInsight 功能首版规划与跨 agent 交接
+<!-- trellis-session: v=2 fp=0477c82bf41d190d -->
+
+**Date**: 2026-10-20
+**Task**: JobInsight 功能首版规划与跨 agent 交接
+**Branch**: `main`
+
+### Summary
+
+用户认可条件选岗、本地候选清单、岗位对比和辅助技能标签核对；指定本轮只产出文档，代码由其他 agent 编写。任务维持 planning。
+
+### Main Changes
+
+- 完成 .trellis/tasks/10-20-frontend-crawl-demo/ 下 prd.md、design.md、implement.md、handoff.md 和 verification.md；配置 6 条实现与 7 条检查上下文。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Testing
+
+- [OK] 真实 JSON 数据覆盖审计已记录；本会话 API 离线真实样本测试 12 passed；Trellis 上下文校验与文档完整性检查通过。未做 MongoDB、浏览器或新功能验收。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 接手 agent 读取 .trellis/tasks/10-20-frontend-crawl-demo/handoff.md；最终方案经后续审阅批准后才运行 task.py start，按 AC01–AC14 实施验证。采集延后单独推进。
+
+
+## Session 8: Implement JobInsight workbench, shortlist, compare and skill check
+<!-- trellis-session: v=2 fp=4aa7fc2589907f2e -->
+
+**Date**: 2026-10-20
+**Task**: Implement JobInsight workbench, shortlist, compare and skill check
+**Branch**: `main`
+
+### Summary
+
+Completed end-to-end implementation of job candidate workflow: workbench landing page, shortlist with batch loading, side-by-side job comparison, objective skill tag checking, responsive layouts, 42 passing unit tests, and production build verification.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6a24a97` | feat(frontend): implement workbench, shortlist, job comparison and skill check |
+| `70f4532` | docs(spec): document workspace state store guidelines in frontend spec |
+
+### Status
+
+[OK] **Completed**
