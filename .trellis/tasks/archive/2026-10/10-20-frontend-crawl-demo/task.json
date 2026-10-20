@@ -1,0 +1,38 @@
+{
+  "id": "frontend-crawl-demo",
+  "name": "frontend-crawl-demo",
+  "title": "岗位选择辅助系统：首版功能规划与交接",
+  "description": "规划条件选岗、本地候选清单、岗位对比及技能标签辅助核对；为其他 agent 准备可审阅的 Trellis 实施交接，采集另行推进",
+  "status": "completed",
+  "dev_type": "frontend",
+  "scope": "job-selection",
+  "package": null,
+  "priority": "P2",
+  "creator": "coding-leaf",
+  "assignee": "coding-leaf",
+  "createdAt": "2026-10-20",
+  "completedAt": "2026-10-20",
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    ".trellis/tasks/10-20-frontend-crawl-demo/prd.md",
+    ".trellis/tasks/10-20-frontend-crawl-demo/design.md",
+    ".trellis/tasks/10-20-frontend-crawl-demo/implement.md",
+    ".trellis/tasks/10-20-frontend-crawl-demo/handoff.md"
+  ],
+  "notes": "用户指定本轮仅编写文档与交接，代码交其他 agent。先读 handoff.md。产品方向已认可；最终规划审阅后才可 start。保留任务 ID 和目录以兼容已记录路径，采集不是本首版必做项。",
+  "meta": {
+    "handoff_entry": ".trellis/tasks/10-20-frontend-crawl-demo/handoff.md",
+    "planning_ready": true,
+    "implementation_approved": true,
+    "delivery_mode": "integrated-frontend-delivery",
+    "next_phase_step": "3.3",
+    "deferred_crawling": true
+  }
+}

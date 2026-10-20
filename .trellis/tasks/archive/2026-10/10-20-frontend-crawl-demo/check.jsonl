@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"前端数据驱动展示和现有规范入口；先遵守权威字段与统计契约"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"公共筛选沿用 Pinia 与 Router；具体方法名以实际代码为准，新用户状态按任务设计分离"}
+{"file":".trellis/spec/backend/data-contract.md","reason":"招聘分组、来源、缺失、薪资与技能统计边界不得被个人操作改变"}
+{"file":"docs/data-dictionary.md","reason":"字段含义与空值处理；不能将省份当城市、缺失当不限或技能标签当完整能力"}
+{"file":"docs/statistical-methodology.md","reason":"薪资区间重叠、样本门槛、技能分母和不可推断的范围"}
+{"file":".trellis/tasks/10-20-frontend-crawl-demo/research/functional-feasibility.md","reason":"已核实数据覆盖、接口基础、离线测试边界与功能可行性"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查 URL、store、本地持久化、详情请求与 UI 状态的端到端一致性"}

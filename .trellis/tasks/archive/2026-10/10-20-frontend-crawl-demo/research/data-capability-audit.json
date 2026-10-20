@@ -1,0 +1,126 @@
+{
+  "total_jobs": 2251,
+  "field_nonempty": {
+    "title": 2251,
+    "company": 2251,
+    "province": 2016,
+    "city": 486,
+    "education_requirement": 2251,
+    "education_min_code": 2251,
+    "experience_min_years": 17,
+    "major_requirement": 1416,
+    "description": 1340,
+    "source_url": 2251,
+    "published_at": 2251
+  },
+  "salary_eligible": 2194,
+  "skills_tagged": 833,
+  "skill_counts": {
+    "C++": 234,
+    "运维": 139,
+    "软件测试": 99,
+    "Python": 307,
+    "人工智能": 162,
+    "Java": 146,
+    "Oracle": 25,
+    "SQL": 135,
+    "Spring": 33,
+    "数据分析": 93,
+    "机器学习": 94,
+    "云计算": 26,
+    "网络安全": 83,
+    "深度学习": 128,
+    "Linux": 214,
+    "Vue": 35,
+    "Git": 72,
+    "MySQL": 80,
+    "Docker": 52,
+    "Kubernetes": 34,
+    "项目管理": 22,
+    "CSS": 24,
+    "HTML": 25,
+    "React": 25
+  },
+  "categories": {
+    "算法与人工智能": {
+      "jobs": 453,
+      "tagged": 235,
+      "description": 315
+    },
+    "运维与云平台": {
+      "jobs": 108,
+      "tagged": 47,
+      "description": 61
+    },
+    "unclassified": {
+      "jobs": 403,
+      "tagged": 89,
+      "description": 216
+    },
+    "软件开发": {
+      "jobs": 580,
+      "tagged": 206,
+      "description": 321
+    },
+    "软件测试": {
+      "jobs": 181,
+      "tagged": 73,
+      "description": 96
+    },
+    "网络与信息安全": {
+      "jobs": 138,
+      "tagged": 83,
+      "description": 93
+    },
+    "技术支持与实施": {
+      "jobs": 81,
+      "tagged": 12,
+      "description": 42
+    },
+    "硬件与芯片": {
+      "jobs": 129,
+      "tagged": 23,
+      "description": 79
+    },
+    "其他明确岗位": {
+      "jobs": 30,
+      "tagged": 4,
+      "description": 14
+    },
+    "数据分析与大数据": {
+      "jobs": 107,
+      "tagged": 53,
+      "description": 75
+    },
+    "通信": {
+      "jobs": 37,
+      "tagged": 8,
+      "description": 26
+    },
+    "项目与产品": {
+      "jobs": 4,
+      "tagged": 0,
+      "description": 2
+    }
+  },
+  "education": {
+    "不限": 521,
+    "本科及以上": 1172,
+    "硕士及以上": 481,
+    "大专及以上": 37,
+    "博士及以上": 40
+  },
+  "experience_status": {
+    "未注明": 1950,
+    "应届/校招": 284,
+    "年限要求": 17
+  },
+  "source_hosts": {
+    "job.ncss.cn": 2251
+  },
+  "published_range": [
+    "2025-10-21",
+    "2026-10-16"
+  ],
+  "unique_ids": 2251
+}
