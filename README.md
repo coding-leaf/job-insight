@@ -9,56 +9,54 @@
 
 ---
 
-## 1. 数据源说明与协作流程
+## 1. 数据说明与协作原则
 
-### 数据私密性与协作原则
-1. **数据源不可上传**：原始招聘源数据与清洗过程数据涉及私密性，**严禁上传到 Git 仓库**（已被 `.gitignore` 严格忽略保护）。
-2. **离线协作传递**：规范数据由项目负责人通过私下渠道（如 QQ）发送给协作同学，仓库中不包含数据文件。
-3. **前期一次性手动入库**：
-   - 数据脚本是一次性针对特定脏数据字段编写的清洗工具，不具有通用性，无需也不应在日常运行中重复执行；
-   - 协作同学收到数据后，在本地前期**手动执行一次导入 MongoDB 即可**（之后数据持久化在数据库中，不需要每次都重新洗数据或重复入库）；
-   - 入库后建议创建的 4 组索引：
-     - `idx_category_province`: `[("job_category", 1), ("province", 1)]`
-     - `idx_salary_category`: `[("salary_eligible_for_midpoint", 1), ("job_category", 1)]`
-     - `idx_education_min_code`: `[("education_min_code", 1)]`
-     - `idx_skills_name`: `[("skills.skill_name", 1)]`
-4. **降低 JSON 权重，以 MongoDB 为主内容**：
-   - 彻底废除后端开机强制预载 4MB JSON 到内存的做法；
-   - 系统的主要数据内容与查询完全由 MongoDB 承载；
-   - 本地 JSON 仅作为离线冷备份或数据交换的载体，不再作为后端运行时的主要核心。
+1. **数据源私密保护**：原始招聘数据与清洗过程数据涉及隐私脱敏资产，**未上传至公开仓库**（受 `.gitignore` 保护）。
+2. **基准数据离线分发**：项目负责人将最终清洗确认的基准数据集（Golden Dataset）打包为 `jobs.json` 发送给协作同学。
+3. **前期一次性导入**：协作同学获取数据后，**仅需在本地执行一次导入命令**；数据持久化至 MongoDB 数据卷后，日常开发启动无需再次导入或重复清洗。
 
 ---
 
-## 2. 系统快速启动指南
-
-在数据已由前期手动导入本地 MongoDB 的前提下，日常运行极其简洁，无需重复入库：
+## 2. 快速部署与运行指南
 
 ### 步骤一：启动 MongoDB 数据库容器
 
 系统使用 Docker Compose 编排 MongoDB 7.0 实例，数据持久化至本地 `mongo_data` 卷：
 
 ```bash
-# 启动 MongoDB 容器 (端口 27017)
+# 启动 MongoDB 容器 (端口映射 27017:27017)
 docker compose up -d
 ```
 
-### 步骤二：启动 FastAPI 后端服务
+### 步骤二：数据导入与索引构建 (仅首次运行需要)
 
-后端默认直连本地 MongoDB（`mongodb://localhost:27017`，数据库 `job_insight`，集合 `jobs`）：
+1. 从项目负责人处获取 `job_data.zip` 并解压得到 `jobs.json`；
+2. 运行初始化脚本一键导入数据并自动建立 4 组复合索引：
+
+```bash
+# Windows / Linux 示例 (指定解压后的 jobs.json 路径)
+python backend/app/db/seed.py --data-path <你的jobs.json实际路径>
+```
+
+> **提示**：导入成功后将显示 `Successfully inserted 2251 documents` 及 `Created 4 required indexes`。数据已安全持久化在本地 Docker 卷中，日常启动无需再次运行此步骤。
+
+### 步骤三：启动 FastAPI 后端服务
+
+后端直连本地 MongoDB 提供数据查询与聚合 API：
 
 ```bash
 # 激活 Python 虚拟环境 (示例)
-source .venv/bin/activate  # 或 Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # 启动后端服务 (端口 8000)
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-启动后可访问健康检查接口，实时确认 MongoDB 连接与数据量：
-- 健康检查：[http://localhost:8000/health](http://localhost:8000/health)（返回 MongoDB 连接状态及文档总数）
+启动后可访问健康检查接口，确认 MongoDB 连接状态与数据容量：
+- 健康检查：[http://localhost:8000/health](http://localhost:8000/health)（实时返回 MongoDB 状态与 2,251 组数据指标）
 - Swagger API 文档：[http://localhost:8000/docs](http://localhost:8000/docs)
 
-### 步骤三：启动 Vue 3 前端分析大屏
+### 步骤四：启动 Vue 3 前端开发服务
 
 ```bash
 cd frontend
@@ -70,14 +68,14 @@ npm install
 npm run dev
 ```
 
-浏览器访问：[http://localhost:5173/](http://localhost:5173/)
+浏览器访问：[http://localhost:5173/](http://localhost:5173/) 即可开始体验完整分析大屏。
 
 ---
 
 ## 3. 自动化测试与质量检验
 
 ```bash
-# 运行后端自动化测试 (包含原生 MongoDB 管道验证)
+# 运行后端自动化测试 (包含原生 MongoDB 聚合管道验证)
 pytest backend/tests/
 
 # 运行代码规范检查
