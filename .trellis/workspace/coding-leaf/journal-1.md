@@ -268,3 +268,38 @@ Completed end-to-end implementation of job candidate workflow: workbench landing
 ### Next Steps
 
 - 无待执行交接；如将来提出新数据层需求，另行评估，不自动接续归档候选。
+
+
+## Session 11: 项目现状审查与文档归档
+<!-- trellis-session: v=2 fp=938f2c04b89ed350 -->
+
+**Date**: 2026-10-20
+**Task**: 项目现状审查与文档归档
+**Branch**: `main`
+
+### Summary
+
+完成项目功能、技术栈、架构与 MongoDB 选型审查，整理现行契约和时间戳报告，用户要求归档任务。
+
+### Main Changes
+
+- 交付两份审查报告、永久证据和四份原文快照，刷新文档导航及规范状态。
+- 说明 MongoDB 实际用途、JSON 运行时回退与选型证据边界；本任务未改造业务代码。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `93660eb` | docs: 整理项目审查报告与历史文档 |
+
+### Testing
+
+- [OK] 四份原文哈希、198个活动链接、21个历史链接映射、七个时间戳产物和上下文校验通过；未运行应用或数据库测试。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 本任务已归档；工作区其他 AGENTS、后端及前端业务改动未纳入本次提交。
